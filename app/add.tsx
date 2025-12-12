@@ -1,9 +1,11 @@
-import { View, Text, TextInput, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { CameraType, CameraView, useCameraPermissions } from 'expo-camera';
+import { useRouter } from 'expo-router';
+import { useRef, useState } from 'react';
+import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState, useRef } from 'react';
-import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 
 export default function AddScreen() {
+  const router = useRouter();
   const [name, setName] = useState('');
   const [location, setLocation] = useState('');
   const [website, setWebsite] = useState('');
@@ -52,6 +54,13 @@ export default function AddScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-white dark:bg-black">
+      <View className="flex-row justify-between items-center px-4 py-2 border-b border-gray-200 dark:border-gray-700">
+        <TouchableOpacity onPress={() => router.back()}>
+          <Text className="text-blue-500 dark:text-blue-400 text-lg font-medium">Cancel</Text>
+        </TouchableOpacity>
+        <Text className="text-lg font-semibold text-gray-900 dark:text-white">New Post</Text>
+        <View style={{ width: 60 }} />
+      </View>
       <ScrollView 
         className="flex-1"
         contentContainerStyle={{ padding: 16 }}

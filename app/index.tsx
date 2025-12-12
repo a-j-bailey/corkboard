@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { useEffect, useState } from 'react';
 import { FlatList, View, useWindowDimensions } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../constants/theme';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -11,6 +11,7 @@ const IMAGE_HEIGHT = 300; // 2:3 aspect ratio (profile aspect ratio)
 export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const { colorScheme } = useTheme();
+  const insets = useSafeAreaInsets();
   const [images, setImages] = useState<string[]>([]);
   const [rotations, setRotations] = useState<number[]>([]);
   
@@ -70,17 +71,22 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1" style={{ backgroundColor }} edges={['top', 'bottom']}>
+    <View className="flex-1" style={{ backgroundColor }}>
       <FlatList
         data={images}
         renderItem={renderItem}
         keyExtractor={(item, index) => index.toString()}
         numColumns={numColumns}
         style={{ backgroundColor }}
-        contentContainerStyle={{ padding, backgroundColor }}
+        contentContainerStyle={{ 
+          padding, 
+          paddingTop: padding + insets.top,
+          paddingBottom: padding + insets.bottom,
+          backgroundColor 
+        }}
         columnWrapperStyle={numColumns > 1 ? { justifyContent: 'flex-start' } : undefined}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
