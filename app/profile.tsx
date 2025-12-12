@@ -1,7 +1,10 @@
-import { View, Text, TouchableOpacity } from 'react-native';
+import { Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTheme } from '../contexts/ThemeContext';
 
 export default function ProfileScreen() {
+  const { colorScheme } = useTheme();
+  
   return (
     <SafeAreaView className="flex-1 bg-white dark:bg-black">
       <View className="flex-1 justify-center items-center px-6">
@@ -12,9 +15,14 @@ export default function ProfileScreen() {
           <Text className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
             Welcome!
           </Text>
-          <Text className="text-base text-gray-600 dark:text-gray-400 text-center">
+          <Text className="text-base text-gray-600 dark:text-gray-400 text-center mb-4">
             Create an account to get started and personalize your experience.
           </Text>
+          <View className="px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-full">
+            <Text className="text-sm text-gray-700 dark:text-gray-300 font-medium">
+              Theme: {colorScheme}
+            </Text>
+          </View>
         </View>
         
         <TouchableOpacity 

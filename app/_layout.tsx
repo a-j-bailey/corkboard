@@ -2,9 +2,12 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import '../global.css';
 
-import { NativeTabs, Icon, Label } from 'expo-router/unstable-native-tabs';
+import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
+import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 
-export default function RootLayout() {
+function RootLayoutContent() {
+  const { colorScheme } = useTheme();
+  
   return (
     <>
       <NativeTabs>
@@ -21,7 +24,15 @@ export default function RootLayout() {
           <Label>Add</Label>
         </NativeTabs.Trigger>
       </NativeTabs>
-      <StatusBar style="auto" />
+      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
     </>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <ThemeProvider>
+      <RootLayoutContent />
+    </ThemeProvider>
   );
 }
