@@ -19,7 +19,7 @@ function RootLayoutContent() {
           <Icon sf="person.fill" />
           <Label>Profile</Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="add">
+        <NativeTabs.Trigger name="add" role="search">
           <Icon sf="plus.circle.fill" />
           <Label>Add</Label>
         </NativeTabs.Trigger>
