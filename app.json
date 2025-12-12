@@ -11,8 +11,10 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "This app needs access to your camera to take photos for your posts."
-      }
+        "NSCameraUsageDescription": "This app needs access to your camera to take photos for your posts.",
+        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to select event poster images."
+      },
+      "bundleIdentifier": "com.magicmirrorcreative.corkboard"
     },
     "android": {
       "adaptiveIcon": {
@@ -24,14 +26,19 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "CAMERA"
-      ]
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.magicmirrorcreative.corkboard"
     },
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      "expo-dev-client",
       "expo-router",
       [
         "expo-splash-screen",
@@ -49,6 +56,12 @@
         "expo-camera",
         {
           "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to take photos for your posts."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow $(PRODUCT_NAME) to access your photos to select event poster images."
         }
       ]
     ],

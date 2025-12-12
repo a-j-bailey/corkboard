@@ -3,6 +3,7 @@ import 'react-native-reanimated';
 import '../global.css';
 
 import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
+import { EventProvider } from '../contexts/EventContext';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 
 function RootLayoutContent() {
@@ -32,7 +33,9 @@ function RootLayoutContent() {
 export default function RootLayout() {
   return (
     <ThemeProvider>
-      <RootLayoutContent />
+      <EventProvider>
+        <RootLayoutContent />
+      </EventProvider>
     </ThemeProvider>
   );
 }

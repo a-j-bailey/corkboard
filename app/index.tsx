@@ -3,16 +3,14 @@ import { useEffect, useState } from 'react';
 import { FlatList, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../constants/theme';
+import { Event, useEvents } from '../contexts/EventContext';
 import { useTheme } from '../contexts/ThemeContext';
-
-const IMAGE_WIDTH = 200;
-const IMAGE_HEIGHT = 300; // 2:3 aspect ratio (profile aspect ratio)
 
 export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const { colorScheme } = useTheme();
   const insets = useSafeAreaInsets();
-  const [images, setImages] = useState<string[]>([]);
+  const { events } = useEvents();
   const [rotations, setRotations] = useState<number[]>([]);
   
   // Calculate number of columns (2 or 3 columns)
@@ -28,20 +26,14 @@ export default function HomeScreen() {
   const borderColor = colorScheme === 'dark' ? '#ffffff' : '#000000';
 
   useEffect(() => {
-    // Generate array of image URLs from Picsum
-    const imageUrls = Array.from({ length: 20 }, (_, i) => 
-      `https://picsum.photos/${IMAGE_WIDTH}/${IMAGE_HEIGHT}?random=${i}`
-    );
-    setImages(imageUrls);
-    
-    // Generate random rotation values between -5 and 5 degrees for each image
-    const rotationValues = Array.from({ length: 20 }, () => 
+    // Generate random rotation values between -5 and 5 degrees for each event
+    const rotationValues = events.map(() => 
       (Math.random() * 10 - 5) // Random value between -5 and 5
     );
     setRotations(rotationValues);
-  }, []);
+  }, [events]);
 
-  const renderItem = ({ item, index }: { item: string; index: number }) => {
+  const renderItem = ({ item, index }: { item: Event; index: number }) => {
     const isLastInRow = (index + 1) % numColumns === 0;
     return (
       <View
@@ -58,7 +50,7 @@ export default function HomeScreen() {
         }}
       >
         <Image
-          source={{ uri: item }}
+          source={{ uri: item.thumbnailImage }}
           style={{
             width: '100%',
             height: '100%',
@@ -73,9 +65,9 @@ export default function HomeScreen() {
   return (
     <View className="flex-1" style={{ backgroundColor }}>
       <FlatList
-        data={images}
+        data={events}
         renderItem={renderItem}
-        keyExtractor={(item, index) => index.toString()}
+        keyExtractor={(item) => item.id}
         numColumns={numColumns}
         style={{ backgroundColor }}
         contentContainerStyle={{ 
@@ -89,4 +81,3 @@ export default function HomeScreen() {
     </View>
   );
 }
-
