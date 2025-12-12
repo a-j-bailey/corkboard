@@ -1,24 +1,27 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
+import '../global.css';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+import { NativeTabs, Icon, Label } from 'expo-router/unstable-native-tabs';
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
+    <>
+      <NativeTabs>
+        <NativeTabs.Trigger name="index">
+          <Icon sf="house.fill" />
+          <Label>Home</Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="profile">
+          <Icon sf="person.fill" />
+          <Label>Profile</Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="add">
+          <Icon sf="plus.circle.fill" />
+          <Label>Add</Label>
+        </NativeTabs.Trigger>
+      </NativeTabs>
       <StatusBar style="auto" />
-    </ThemeProvider>
+    </>
   );
 }
