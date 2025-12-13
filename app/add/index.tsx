@@ -12,7 +12,6 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,16 +19,13 @@ import { extractEventFromImage } from '../../services/visionExtraction';
 
 export default function AddScreen() {
   const router = useRouter();
-  const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [facing, setFacing] = useState<CameraType>('back');
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
   const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [zoom, setZoom] = useState(0); // 0 = no zoom, 1 = max zoom
-  const [isNavigating, setIsNavigating] = useState(false);
-
+  const [zoomLevel, setZoomLevel] = useState<1 | 2>(1); // 1x or 2x zoom
 
   if (!permission) {
     // Camera permissions are still loading
@@ -60,18 +56,15 @@ export default function AddScreen() {
     );
   }
 
-  const toggleCameraFacing = () => {
-    setFacing(current => (current === 'back' ? 'front' : 'back'));
+  const toggleZoom = () => {
+    setZoomLevel(current => (current === 1 ? 2 : 1));
   };
 
-  const handleZoom = () => {
-    // Toggle between 1x (0) and 2x (0.4, which approximates 2x on most devices)
-    setZoom(current => (current === 0 ? 0.4 : 0));
-  };
+  // Convert zoom level to zoom value (0-1 range)
+  // 1x = 0, 2x = 0.33 (typical value that triggers 2x on most devices)
+  const zoomValue = zoomLevel === 1 ? 0 : 0.33;
 
   const processImage = async (imageUri: string) => {
-    console.log('[AddScreen] Starting image processing');
-    console.log('[AddScreen] Image URI:', imageUri);
     setIsProcessing(true);
 
     let navigationCompleted = false;
@@ -79,11 +72,9 @@ export default function AddScreen() {
     try {
       // Get xAI API key
       const xaiApiKey = Constants.expoConfig?.extra?.xaiApiKey || process.env.EXPO_PUBLIC_XAI_API_KEY;
-      
+
       if (!xaiApiKey) {
         console.error('[AddScreen] No xAI API key found');
-        console.error('[AddScreen] Checked Constants.expoConfig?.extra?.xaiApiKey:', Constants.expoConfig?.extra?.xaiApiKey);
-        console.error('[AddScreen] Checked process.env.EXPO_PUBLIC_XAI_API_KEY:', process.env.EXPO_PUBLIC_XAI_API_KEY ? '***' : 'undefined');
         Alert.alert(
           'API Key Required',
           'xAI API key is required. Please set EXPO_PUBLIC_XAI_API_KEY in your environment or add xaiApiKey to app.json extra config.'
@@ -92,22 +83,11 @@ export default function AddScreen() {
         return;
       }
 
-      console.log('[AddScreen] xAI API key found, length:', xaiApiKey.length);
-      console.log('[AddScreen] Attempting vision-based extraction with xAI Grok...');
-      
       const eventData = await extractEventFromImage(imageUri, xaiApiKey);
-      
-      console.log('[AddScreen] Vision extraction successful');
-      console.log('[AddScreen] Extracted event data:', JSON.stringify(eventData, null, 2));
-      
+
       // Store image URI for navigation before clearing state
       const imageUriForPreview = capturedImageUri || imageUri;
-      
-      // Navigate to preview screen with event data and image URI
-      console.log('[AddScreen] Navigating to preview screen with extracted data');
-      console.log('[AddScreen] Event data being passed:', JSON.stringify(eventData, null, 2));
-      console.log('[AddScreen] Poster image URI:', imageUriForPreview);
-      
+
       // Navigate immediately to preview screen (before any state changes)
       router.push({
         pathname: '/add/preview',
@@ -116,22 +96,21 @@ export default function AddScreen() {
           posterImageUri: imageUriForPreview || '',
         },
       });
-      
+
       navigationCompleted = true;
-      console.log('[AddScreen] Image processing completed successfully - redirected to preview');
-      
+
       // Reset processing state and clear captured image after navigation is initiated
       // Use setTimeout to ensure navigation completes before state changes
       setTimeout(() => {
         setIsProcessing(false);
         setCapturedImageUri(null);
       }, 500);
-      
+
       return; // Exit early to prevent finally block from resetting state
     } catch (error) {
       console.error('[AddScreen] Error processing image:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      
+
       // Provide more specific error messages based on error type
       let userMessage = 'Failed to extract event information. ';
       if (errorMessage.includes('No text detected') || errorMessage.includes('No text content')) {
@@ -140,12 +119,11 @@ export default function AddScreen() {
         userMessage = 'Text extraction failed. The image may be too blurry or low quality. ';
       }
       userMessage += 'You can still manually enter the details in the preview screen.';
-      
+
       Alert.alert('Processing Error', userMessage, [
         {
           text: 'Try Again',
           onPress: () => {
-            console.log('[AddScreen] User chose to try again');
             setCapturedImageUri(null);
             setIsProcessing(false);
           },
@@ -153,7 +131,6 @@ export default function AddScreen() {
         {
           text: 'Enter Manually',
           onPress: () => {
-            console.log('[AddScreen] User chose to enter manually');
             // Navigate to preview screen with empty event data so user can enter manually
             router.push({
               pathname: '/add/preview',
@@ -171,13 +148,11 @@ export default function AddScreen() {
       // (navigation will handle state cleanup in success case)
       if (!navigationCompleted) {
         setIsProcessing(false);
-        console.log('[AddScreen] Processing state reset');
       }
     }
   };
 
   const takePicture = async () => {
-    console.log('[AddScreen] Taking picture...');
     if (!cameraRef.current) {
       console.warn('[AddScreen] Camera ref not available');
       return;
@@ -190,7 +165,6 @@ export default function AddScreen() {
       });
 
       if (photo?.uri) {
-        console.log('[AddScreen] Picture captured successfully:', photo.uri);
         setCapturedImageUri(photo.uri);
         await processImage(photo.uri);
       } else {
@@ -203,7 +177,6 @@ export default function AddScreen() {
   };
 
   const pickImage = async () => {
-    console.log('[AddScreen] Picking image from library...');
     try {
       // Request media library permissions
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -216,7 +189,6 @@ export default function AddScreen() {
         return;
       }
 
-      console.log('[AddScreen] Opening image picker...');
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -226,110 +198,14 @@ export default function AddScreen() {
 
       if (!result.canceled && result.assets[0]) {
         const imageUri = result.assets[0].uri;
-        console.log('[AddScreen] Image selected:', imageUri);
         setCapturedImageUri(imageUri);
         await processImage(imageUri);
-      } else {
-        console.log('[AddScreen] Image picker canceled');
       }
     } catch (error) {
       console.error('[AddScreen] Error picking image:', error);
       Alert.alert('Error', 'Failed to pick image. Please try again.');
     }
   };
-
-  const navigateToPreviewWithDummyDataFromButton = () => {
-    // Prevent multiple navigations
-    if (isNavigating || isProcessing) {
-      console.log('[AddScreen] Navigation already in progress, ignoring duplicate call');
-      return;
-    }
-
-    setIsNavigating(true);
-    console.log('[AddScreen] Test data button pressed - navigating to preview');
-    
-    const dummyEventData = {
-      title: 'Summer Music Festival 2024',
-      date: '2024-07-15',
-      time: '6:00 PM',
-      address: 'Central Park, New York, NY',
-      cost: '$45',
-      websiteUrl: 'https://example.com/festival',
-      description: 'Join us for an amazing summer music festival featuring top artists and local bands. Food trucks, drinks, and great vibes!',
-      organizationName: 'City Events Co.',
-      socialMediaHandles: {
-        twitter: '@summerfest2024',
-        instagram: '@summerfest2024',
-        facebook: 'Summer Music Festival',
-      },
-    };
-
-    const encodedEventData = encodeURIComponent(JSON.stringify(dummyEventData));
-    
-    router.push({
-      pathname: '/add/preview',
-      params: {
-        eventData: encodedEventData,
-        posterImageUri: '',
-      },
-    });
-    
-    console.log('[AddScreen] Navigation to preview called');
-    
-    // Reset navigation flag after a delay to allow navigation to complete
-    setTimeout(() => {
-      setIsNavigating(false);
-    }, 1000);
-  };
-
-  const navigateToPreviewWithDummyData = () => {
-    // Prevent multiple navigations
-    if (isNavigating || isProcessing) {
-      console.log('[AddScreen] Navigation already in progress, ignoring duplicate call');
-      return;
-    }
-
-    setIsNavigating(true);
-    console.log('[AddScreen] Preview with dummy data button pressed');
-    
-    const dummyEventData = {
-      title: 'Summer Music Festival 2024',
-      date: '2024-07-15',
-      time: '6:00 PM',
-      address: 'Central Park, New York, NY',
-      cost: '$45',
-      websiteUrl: 'https://example.com/festival',
-      description: 'Join us for an amazing summer music festival featuring top artists and local bands. Food trucks, drinks, and great vibes!',
-      organizationName: 'City Events Co.',
-      socialMediaHandles: {
-        twitter: '@summerfest2024',
-        instagram: '@summerfest2024',
-        facebook: 'Summer Music Festival',
-      },
-    };
-
-    console.log('[AddScreen] Navigating to preview with dummy data');
-    console.log('[AddScreen] Dummy event data:', JSON.stringify(dummyEventData, null, 2));
-    
-    const encodedEventData = encodeURIComponent(JSON.stringify(dummyEventData));
-    console.log('[AddScreen] Encoded event data length:', encodedEventData.length);
-    
-    router.push({
-      pathname: '/add/preview',
-      params: {
-        eventData: encodedEventData,
-        posterImageUri: '',
-      },
-    });
-    
-    console.log('[AddScreen] Navigation to preview called');
-    
-    // Reset navigation flag after a delay to allow navigation to complete
-    setTimeout(() => {
-      setIsNavigating(false);
-    }, 1000);
-  };
-
 
   return (
     <View style={{ flex: 1 }}>
@@ -372,51 +248,18 @@ export default function AddScreen() {
       ) : (
         // Full screen camera view
         <View style={{ flex: 1 }}>
-          <CameraView 
-            ref={cameraRef} 
-            style={StyleSheet.absoluteFill} 
+          <CameraView
+            ref={cameraRef}
+            style={StyleSheet.absoluteFill}
             facing={facing}
-            zoom={zoom}
+            zoom={zoomValue}
           />
-          
-          {/* Dummy Data Button - Top Right */}
+
+          {/* Glass toolbar - positioned above nav bar */}
           <View
             style={{
               position: 'absolute',
-              top: insets.top + 20,
-              right: 20,
-              zIndex: 1000,
-              elevation: 10,
-            }}
-          >
-            <TouchableOpacity
-              onPress={navigateToPreviewWithDummyDataFromButton}
-              disabled={isProcessing || isNavigating}
-              activeOpacity={0.7}
-            >
-              <GlassView
-                style={{
-                  paddingHorizontal: 16,
-                  paddingVertical: 10,
-                  borderRadius: 20,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                }}
-                glassEffectStyle="regular"
-                isInteractive
-              >
-                <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '600' }}>
-                  Test Data
-                </Text>
-              </GlassView>
-            </TouchableOpacity>
-          </View>
-          
-          {/* Glass toolbar - positioned above nav bar */}
-          <View 
-            style={{
-              position: 'absolute',
-              bottom: insets.bottom * 3 ,
+              bottom: insets.bottom * 3,
               left: 20,
               right: 20,
               flexDirection: 'row',
@@ -438,11 +281,33 @@ export default function AddScreen() {
                   borderRadius: 28,
                   justifyContent: 'center',
                   alignItems: 'center',
+                  overflow: 'hidden',
                 }}
                 glassEffectStyle="regular"
                 isInteractive
               >
-                <Ionicons name="images-outline" size={24} color="#FFFFFF" />
+                {/* Semi-transparent dark overlay for consistent contrast */}
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                    borderRadius: 28,
+                  }}
+                />
+                <Ionicons
+                  name="images-outline"
+                  size={24}
+                  color="#FFFFFF"
+                  style={{
+                    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+                    textShadowOffset: { width: 0, height: 1 },
+                    textShadowRadius: 2,
+                  }}
+                />
               </GlassView>
             </TouchableOpacity>
 
@@ -460,19 +325,41 @@ export default function AddScreen() {
                   justifyContent: 'center',
                   alignItems: 'center',
                   paddingHorizontal: 24,
+                  overflow: 'hidden',
                 }}
                 glassEffectStyle="regular"
                 isInteractive
               >
-                <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>
+                {/* Semi-transparent dark overlay for consistent contrast */}
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                    borderRadius: 28,
+                  }}
+                />
+                <Text
+                  style={{
+                    color: '#FFFFFF',
+                    fontSize: 16,
+                    fontWeight: '600',
+                    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+                    textShadowOffset: { width: 0, height: 1 },
+                    textShadowRadius: 2,
+                  }}
+                >
                   Capture
                 </Text>
               </GlassView>
             </TouchableOpacity>
 
-            {/* Zoom Button */}
+            {/* Zoom Toggle Button */}
             <TouchableOpacity
-              onPress={handleZoom}
+              onPress={toggleZoom}
               disabled={isProcessing}
               activeOpacity={0.7}
             >
@@ -483,20 +370,42 @@ export default function AddScreen() {
                   borderRadius: 28,
                   justifyContent: 'center',
                   alignItems: 'center',
+                  overflow: 'hidden',
                 }}
                 glassEffectStyle="regular"
                 isInteractive
               >
-                <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '600' }}>
-                  {zoom === 0 ? '1x' : '2x'}
+                {/* Semi-transparent dark overlay for consistent contrast */}
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                    borderRadius: 28,
+                  }}
+                />
+                <Text
+                  style={{
+                    color: '#FFFFFF',
+                    fontSize: 14,
+                    fontWeight: '600',
+                    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+                    textShadowOffset: { width: 0, height: 1 },
+                    textShadowRadius: 2,
+                  }}
+                >
+                  {zoomLevel}x
                 </Text>
               </GlassView>
             </TouchableOpacity>
           </View>
-          
+
           {/* Processing overlay */}
           {isProcessing && (
-            <View 
+            <View
               style={[
                 StyleSheet.absoluteFill,
                 {
