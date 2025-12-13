@@ -106,7 +106,6 @@ export default function PreviewScreen() {
         description: description.trim() || undefined,
         organizationName: organizationName.trim() || undefined,
         socialMediaHandles: Object.keys(socialMediaHandles).length > 0 ? socialMediaHandles : undefined,
-        thumbnailImage: posterImageUri || initialEventData.thumbnailImage || '',
         posterImage: posterImageUri || initialEventData.posterImage || '',
       };
 

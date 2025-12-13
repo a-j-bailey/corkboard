@@ -142,7 +142,6 @@ export default function EventPreviewModal({
         description: description.trim() || undefined,
         organizationName: organizationName.trim() || undefined,
         socialMediaHandles: Object.keys(socialMediaHandles).length > 0 ? socialMediaHandles : undefined,
-        thumbnailImage: posterImageUri || eventData.thumbnailImage || '',
         posterImage: posterImageUri || eventData.posterImage || '',
       };
 

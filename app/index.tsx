@@ -1,7 +1,8 @@
 import { Image } from 'expo-image';
 import { useEffect, useState } from 'react';
-import { FlatList, View, useWindowDimensions } from 'react-native';
+import { FlatList, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import EventDetailModal from '../components/EventDetailModal';
 import { Colors } from '../constants/theme';
 import { Event, useEvents } from '../contexts/EventContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -12,6 +13,8 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { events } = useEvents();
   const [rotations, setRotations] = useState<number[]>([]);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [isModalVisible, setIsModalVisible] = useState(false);
   
   // Calculate number of columns (2 or 3 columns)
   const gap = 32;
@@ -33,10 +36,22 @@ export default function HomeScreen() {
     setRotations(rotationValues);
   }, [events]);
 
+  const handleCardPress = (event: Event) => {
+    setSelectedEvent(event);
+    setIsModalVisible(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalVisible(false);
+    setSelectedEvent(null);
+  };
+
   const renderItem = ({ item, index }: { item: Event; index: number }) => {
     const isLastInRow = (index + 1) % numColumns === 0;
     return (
-      <View
+      <TouchableOpacity
+        onPress={() => handleCardPress(item)}
+        activeOpacity={0.9}
         style={{
           width: imageWidth,
           height: imageHeight,
@@ -50,7 +65,7 @@ export default function HomeScreen() {
         }}
       >
         <Image
-          source={{ uri: item.thumbnailImage }}
+          source={{ uri: item.posterImage }}
           style={{
             width: '100%',
             height: '100%',
@@ -58,7 +73,7 @@ export default function HomeScreen() {
           contentFit="cover"
           transition={200}
         />
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -77,6 +92,12 @@ export default function HomeScreen() {
           backgroundColor 
         }}
         columnWrapperStyle={numColumns > 1 ? { justifyContent: 'flex-start' } : undefined}
+        showsVerticalScrollIndicator={false}
+      />
+      <EventDetailModal
+        visible={isModalVisible}
+        onClose={handleCloseModal}
+        event={selectedEvent}
       />
     </View>
   );
