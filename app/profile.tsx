@@ -12,22 +12,11 @@ export default function ProfileScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor }}>
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }}>
         <View style={{ alignItems: 'center', marginBottom: 32 }}>
-          <View style={{
-            width: 96,
-            height: 96,
-            borderRadius: 48,
-            backgroundColor: colorScheme === 'dark' ? '#374151' : '#E5E7EB',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: 16,
-          }}>
-            <Text style={{ fontSize: 36 }}>👤</Text>
-          </View>
           <Text style={{
             fontSize: 24,
             fontWeight: '700',
             color: textColor,
-            marginBottom: 8,
+            marginBottom: 16,
           }}>
             Welcome!
           </Text>
@@ -35,24 +24,11 @@ export default function ProfileScreen() {
             fontSize: 16,
             color: colorScheme === 'dark' ? '#9BA1A6' : '#687076',
             textAlign: 'center',
-            marginBottom: 16,
+            marginBottom: 8,
+            lineHeight: 24,
           }}>
-            Create an account to get started and personalize your experience.
+            Create an account to save and submit event posters to your corkboard.
           </Text>
-          <View style={{
-            paddingHorizontal: 16,
-            paddingVertical: 8,
-            backgroundColor: colorScheme === 'dark' ? '#374151' : '#F3F4F6',
-            borderRadius: 9999,
-          }}>
-            <Text style={{
-              fontSize: 14,
-              color: colorScheme === 'dark' ? '#D1D5DB' : '#374151',
-              fontWeight: '500',
-            }}>
-              Theme: {colorScheme}
-            </Text>
-          </View>
         </View>
         
         <TouchableOpacity 
