@@ -2,6 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import '../global.css';
 
+import { Slot } from 'expo-router';
 import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
 import { EventProvider } from '../contexts/EventContext';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
@@ -12,6 +13,7 @@ function RootLayoutContent() {
   return (
     <>
       <NativeTabs>
+        <Slot />
         <NativeTabs.Trigger name="index">
           <Icon sf="house.fill" />
           <Label>Home</Label>
@@ -24,6 +26,10 @@ function RootLayoutContent() {
           <Icon sf="plus.circle.fill" />
           <Label>Add</Label>
         </NativeTabs.Trigger>
+        {/* <NativeTabs.Trigger name="preview">
+          <Icon sf="eye.fill" />
+          <Label>Preview</Label>
+        </NativeTabs.Trigger> */}
       </NativeTabs>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
     </>

@@ -1,7 +1,7 @@
-import { BottomSheet, Host } from '@expo/ui/swift-ui';
 import { Ionicons } from '@expo/vector-icons';
 import { GlassView } from 'expo-glass-effect';
 import { Image } from 'expo-image';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -11,119 +11,83 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  useWindowDimensions
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Event, SocialMediaHandles, useEvents } from '../contexts/EventContext';
+import { Event, SocialMediaHandles, useEvents } from '../../contexts/EventContext';
 
-interface EventPreviewModalProps {
-  visible: boolean;
-  onClose: () => void;
-  eventData: Partial<Event>;
-  posterImageUri?: string;
-}
-
-export default function EventPreviewModal({
-  visible,
-  onClose,
-  eventData,
-  posterImageUri,
-}: EventPreviewModalProps) {
-  const { addEvent } = useEvents();
-  const { width, height } = useWindowDimensions();
+export default function PreviewScreen() {
+  const router = useRouter();
+  const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const { addEvent } = useEvents();
   const [isSaving, setIsSaving] = useState(false);
-  const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
   
-  const [title, setTitle] = useState(eventData.title || '');
-  const [date, setDate] = useState(eventData.date || '');
-  const [time, setTime] = useState(eventData.time || '');
-  const [address, setAddress] = useState(eventData.address || '');
-  const [cost, setCost] = useState(eventData.cost || '');
-  const [websiteUrl, setWebsiteUrl] = useState(eventData.websiteUrl || '');
-  const [description, setDescription] = useState(eventData.description || '');
-  const [organizationName, setOrganizationName] = useState(eventData.organizationName || '');
-  const [twitter, setTwitter] = useState(eventData.socialMediaHandles?.twitter || '');
-  const [instagram, setInstagram] = useState(eventData.socialMediaHandles?.instagram || '');
-  const [facebook, setFacebook] = useState(eventData.socialMediaHandles?.facebook || '');
+  // Get params from route
+  const params = useLocalSearchParams<{
+    eventData?: string;
+    posterImageUri?: string;
+  }>();
 
-  // Sync bottom sheet with visible prop
-  useEffect(() => {
-    console.log('[EventPreviewModal] Visibility changed:', visible);
-    setIsBottomSheetOpen(visible);
-    if (visible) {
-      console.log('[EventPreviewModal] Modal opened with event data:', JSON.stringify(eventData, null, 2));
+  // Parse event data from route params
+  let initialEventData: Partial<Event> = {};
+  try {
+    if (params.eventData) {
+      initialEventData = JSON.parse(decodeURIComponent(params.eventData));
     }
-  }, [visible, eventData]);
+  } catch (error) {
+    console.error('[PreviewScreen] Error parsing event data from params:', error);
+  }
+  
+  const posterImageUri = params.posterImageUri || undefined;
 
-  // Update form fields when eventData changes
+  const [title, setTitle] = useState(initialEventData.title || '');
+  const [date, setDate] = useState(initialEventData.date || '');
+  const [time, setTime] = useState(initialEventData.time || '');
+  const [address, setAddress] = useState(initialEventData.address || '');
+  const [cost, setCost] = useState(initialEventData.cost || '');
+  const [websiteUrl, setWebsiteUrl] = useState(initialEventData.websiteUrl || '');
+  const [description, setDescription] = useState(initialEventData.description || '');
+  const [organizationName, setOrganizationName] = useState(initialEventData.organizationName || '');
+  const [twitter, setTwitter] = useState(initialEventData.socialMediaHandles?.twitter || '');
+  const [instagram, setInstagram] = useState(initialEventData.socialMediaHandles?.instagram || '');
+  const [facebook, setFacebook] = useState(initialEventData.socialMediaHandles?.facebook || '');
+
+  // Update state when params change
   useEffect(() => {
-    console.log('[EventPreviewModal] Event data updated:', JSON.stringify(eventData, null, 2));
-    console.log('[EventPreviewModal] Poster image URI:', posterImageUri);
+    console.log('[PreviewScreen] Screen loaded');
+    console.log('[PreviewScreen] Event data:', JSON.stringify(initialEventData, null, 2));
+    console.log('[PreviewScreen] Poster image URI:', posterImageUri);
     
-    const newTitle = eventData.title || '';
-    const newDate = eventData.date || '';
-    const newTime = eventData.time || '';
-    const newAddress = eventData.address || '';
-    const newCost = eventData.cost || '';
-    const newWebsiteUrl = eventData.websiteUrl || '';
-    const newDescription = eventData.description || '';
-    const newOrganizationName = eventData.organizationName || '';
-    const newTwitter = eventData.socialMediaHandles?.twitter || '';
-    const newInstagram = eventData.socialMediaHandles?.instagram || '';
-    const newFacebook = eventData.socialMediaHandles?.facebook || '';
-    
-    console.log('[EventPreviewModal] Updating form fields:');
-    console.log('  - Title:', newTitle || '(empty)');
-    console.log('  - Date:', newDate || '(empty)');
-    console.log('  - Time:', newTime || '(empty)');
-    console.log('  - Address:', newAddress || '(empty)');
-    console.log('  - Cost:', newCost || '(empty)');
-    console.log('  - Website URL:', newWebsiteUrl || '(empty)');
-    console.log('  - Description:', newDescription ? `${newDescription.substring(0, 50)}...` : '(empty)');
-    console.log('  - Organization:', newOrganizationName || '(empty)');
-    console.log('  - Twitter:', newTwitter || '(empty)');
-    console.log('  - Instagram:', newInstagram || '(empty)');
-    console.log('  - Facebook:', newFacebook || '(empty)');
-    
-    setTitle(newTitle);
-    setDate(newDate);
-    setTime(newTime);
-    setAddress(newAddress);
-    setCost(newCost);
-    setWebsiteUrl(newWebsiteUrl);
-    setDescription(newDescription);
-    setOrganizationName(newOrganizationName);
-    setTwitter(newTwitter);
-    setInstagram(newInstagram);
-    setFacebook(newFacebook);
-  }, [eventData, posterImageUri]);
-
-  const handleBottomSheetClose = (isOpen: boolean) => {
-    console.log('[EventPreviewModal] Bottom sheet state changed:', isOpen);
-    setIsBottomSheetOpen(isOpen);
-    if (!isOpen) {
-      console.log('[EventPreviewModal] Modal closed');
-      onClose();
-    }
-  };
+    setTitle(initialEventData.title || '');
+    setDate(initialEventData.date || '');
+    setTime(initialEventData.time || '');
+    setAddress(initialEventData.address || '');
+    setCost(initialEventData.cost || '');
+    setWebsiteUrl(initialEventData.websiteUrl || '');
+    setDescription(initialEventData.description || '');
+    setOrganizationName(initialEventData.organizationName || '');
+    setTwitter(initialEventData.socialMediaHandles?.twitter || '');
+    setInstagram(initialEventData.socialMediaHandles?.instagram || '');
+    setFacebook(initialEventData.socialMediaHandles?.facebook || '');
+  }, [params.eventData, params.posterImageUri]);
 
   const handleSave = async () => {
-    console.log('[EventPreviewModal] Save button pressed');
+    console.log('[PreviewScreen] Save button pressed');
     
     if (!title.trim()) {
-      console.warn('[EventPreviewModal] Validation failed: title is required');
+      console.warn('[PreviewScreen] Validation failed: title is required');
       Alert.alert('Error', 'Please enter an event title');
       return;
     }
 
     if (!date.trim()) {
-      console.warn('[EventPreviewModal] Validation failed: date is required');
+      console.warn('[PreviewScreen] Validation failed: date is required');
       Alert.alert('Error', 'Please enter an event date');
       return;
     }
 
-    console.log('[EventPreviewModal] Validation passed, saving event...');
+    console.log('[PreviewScreen] Validation passed, saving event...');
     setIsSaving(true);
 
     try {
@@ -142,18 +106,23 @@ export default function EventPreviewModal({
         description: description.trim() || undefined,
         organizationName: organizationName.trim() || undefined,
         socialMediaHandles: Object.keys(socialMediaHandles).length > 0 ? socialMediaHandles : undefined,
-        thumbnailImage: posterImageUri || eventData.thumbnailImage || '',
-        posterImage: posterImageUri || eventData.posterImage || '',
+        thumbnailImage: posterImageUri || initialEventData.thumbnailImage || '',
+        posterImage: posterImageUri || initialEventData.posterImage || '',
       };
 
-      console.log('[EventPreviewModal] Event data to save:', JSON.stringify(eventToSave, null, 2));
+      console.log('[PreviewScreen] Event data to save:', JSON.stringify(eventToSave, null, 2));
       addEvent(eventToSave);
-      console.log('[EventPreviewModal] Event saved successfully');
-      Alert.alert('Success', 'Event saved successfully!');
-      setIsBottomSheetOpen(false);
-      onClose();
+      console.log('[PreviewScreen] Event saved successfully');
+      Alert.alert('Success', 'Event saved successfully!', [
+        {
+          text: 'OK',
+          onPress: () => {
+            router.back();
+          },
+        },
+      ]);
     } catch (error) {
-      console.error('[EventPreviewModal] Error saving event:', error);
+      console.error('[PreviewScreen] Error saving event:', error);
       Alert.alert('Error', 'Failed to save event. Please try again.');
     } finally {
       setIsSaving(false);
@@ -166,7 +135,7 @@ export default function EventPreviewModal({
   const imageWidth = availableWidth;
   const imageHeight = (imageWidth * 3) / 2; // 2:3 aspect ratio
 
-  const renderContent = () => (
+  return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#000000' }}>
       {/* Header */}
       <View style={{
@@ -178,8 +147,8 @@ export default function EventPreviewModal({
         borderBottomWidth: 1,
         borderBottomColor: 'rgba(255, 255, 255, 0.1)',
       }}>
-        <TouchableOpacity onPress={onClose} disabled={isSaving}>
-          <Ionicons name="close" size={24} color="#FFFFFF" />
+        <TouchableOpacity onPress={() => router.back()} disabled={isSaving}>
+          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '600' }}>
           Preview Event
@@ -545,19 +514,5 @@ export default function EventPreviewModal({
       </View>
     </SafeAreaView>
   );
-
-  if (!visible && !isBottomSheetOpen) {
-    return null;
-  }
-
-  return (
-    <Host style={{ position: 'absolute', width, height, zIndex: 1000, pointerEvents: 'box-none' }}>
-      <BottomSheet
-        isOpened={isBottomSheetOpen}
-        onIsOpenedChange={handleBottomSheetClose}
-      >
-        {renderContent()}
-      </BottomSheet>
-    </Host>
-  );
 }
+
