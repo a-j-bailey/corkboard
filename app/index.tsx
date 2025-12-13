@@ -26,7 +26,7 @@ export default function HomeScreen() {
   const imageHeight = (imageWidth * 3) / 2; // Maintain 2:3 profile aspect ratio
 
   const backgroundColor = Colors[colorScheme].background;
-  const borderColor = colorScheme === 'dark' ? '#ffffff' : '#000000';
+  const borderColor = '#f5f5f5'; // Slightly off-white border for both light and dark mode
 
   useEffect(() => {
     // Generate random rotation values between -5 and 5 degrees for each event

@@ -14,13 +14,18 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Colors } from '../../constants/theme';
 import { Event, SocialMediaHandles, useEvents } from '../../contexts/EventContext';
+import { useTheme } from '../../contexts/ThemeContext';
 
 export default function PreviewScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { addEvent } = useEvents();
+  const { colorScheme } = useTheme();
+  const backgroundColor = Colors[colorScheme].background;
+  const textColor = Colors[colorScheme].text;
   const [isSaving, setIsSaving] = useState(false);
   
   // Get params from route
@@ -134,8 +139,14 @@ export default function PreviewScreen() {
   const imageWidth = availableWidth;
   const imageHeight = (imageWidth * 3) / 2; // 2:3 aspect ratio
 
+  const borderColor = colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+  const iconColor = textColor;
+  const placeholderColor = colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.5)';
+  const placeholderColorLight = colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)';
+  const imageBgColor = colorScheme === 'dark' ? '#1F1F1F' : '#E5E7EB';
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#000000' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor }}>
       {/* Header */}
       <View style={{
         flexDirection: 'row',
@@ -144,12 +155,12 @@ export default function PreviewScreen() {
         paddingHorizontal: 20,
         paddingVertical: 16,
         borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+        borderBottomColor: borderColor,
       }}>
         <TouchableOpacity onPress={() => router.back()} disabled={isSaving}>
-          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          <Ionicons name="arrow-back" size={24} color={iconColor} />
         </TouchableOpacity>
-        <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '600' }}>
+        <Text style={{ color: textColor, fontSize: 18, fontWeight: '600' }}>
           Preview Event
         </Text>
         <View style={{ width: 24 }} />
@@ -173,7 +184,7 @@ export default function PreviewScreen() {
               height: imageHeight,
               borderRadius: 12,
               overflow: 'hidden',
-              backgroundColor: '#1F1F1F',
+              backgroundColor: imageBgColor,
             }}>
               <Image
                 source={{ uri: posterImageUri }}
@@ -191,7 +202,7 @@ export default function PreviewScreen() {
             <View style={{ marginBottom: 20 }}>
               <TextInput
                 style={{
-                  color: '#FFFFFF',
+                  color: textColor,
                   fontSize: 28,
                   fontWeight: '700',
                   textAlign: 'center',
@@ -200,7 +211,7 @@ export default function PreviewScreen() {
                 value={title}
                 onChangeText={setTitle}
                 placeholder="Event Title"
-                placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                placeholderTextColor={placeholderColor}
                 editable={!isSaving}
                 multiline
               />
@@ -209,7 +220,7 @@ export default function PreviewScreen() {
             <View style={{ marginBottom: 20 }}>
               <TextInput
                 style={{
-                  color: 'rgba(255, 255, 255, 0.5)',
+                  color: placeholderColor,
                   fontSize: 28,
                   fontWeight: '700',
                   textAlign: 'center',
@@ -218,7 +229,7 @@ export default function PreviewScreen() {
                 value=""
                 onChangeText={setTitle}
                 placeholder="Event Title *"
-                placeholderTextColor="rgba(255, 255, 255, 0.3)"
+                placeholderTextColor={placeholderColorLight}
                 editable={!isSaving}
                 multiline
               />
@@ -236,34 +247,34 @@ export default function PreviewScreen() {
             }}>
               {date && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="calendar-outline" size={18} color="#FFFFFF" />
+                  <Ionicons name="calendar-outline" size={18} color={iconColor} />
                   <TextInput
                     style={{
-                      color: '#FFFFFF',
+                      color: textColor,
                       fontSize: 16,
                       fontWeight: '500',
                     }}
                     value={date}
                     onChangeText={setDate}
                     placeholder="Date"
-                    placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                    placeholderTextColor={placeholderColor}
                     editable={!isSaving}
                   />
                 </View>
               )}
               {time && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="time-outline" size={18} color="#FFFFFF" />
+                  <Ionicons name="time-outline" size={18} color={iconColor} />
                   <TextInput
                     style={{
-                      color: '#FFFFFF',
+                      color: textColor,
                       fontSize: 16,
                       fontWeight: '500',
                     }}
                     value={time}
                     onChangeText={setTime}
                     placeholder="Time"
-                    placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                    placeholderTextColor={placeholderColor}
                     editable={!isSaving}
                   />
                 </View>
@@ -279,17 +290,17 @@ export default function PreviewScreen() {
               marginBottom: 16,
               gap: 8,
             }}>
-              <Ionicons name="location-outline" size={18} color="#FFFFFF" style={{ marginTop: 2 }} />
+              <Ionicons name="location-outline" size={18} color={iconColor} style={{ marginTop: 2 }} />
               <TextInput
                 style={{
-                  color: '#FFFFFF',
+                  color: textColor,
                   fontSize: 16,
                   flex: 1,
                 }}
                 value={address}
                 onChangeText={setAddress}
                 placeholder="Location"
-                placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                placeholderTextColor={placeholderColor}
                 editable={!isSaving}
                 multiline
               />
@@ -304,17 +315,17 @@ export default function PreviewScreen() {
               marginBottom: 16,
               gap: 8,
             }}>
-              <Ionicons name="cash-outline" size={18} color="#FFFFFF" />
+              <Ionicons name="cash-outline" size={18} color={iconColor} />
               <TextInput
                 style={{
-                  color: '#FFFFFF',
+                  color: textColor,
                   fontSize: 16,
                   fontWeight: '500',
                 }}
                 value={cost}
                 onChangeText={setCost}
                 placeholder="Cost"
-                placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                placeholderTextColor={placeholderColor}
                 editable={!isSaving}
               />
             </View>
@@ -328,16 +339,16 @@ export default function PreviewScreen() {
               marginBottom: 16,
               gap: 8,
             }}>
-              <Ionicons name="business-outline" size={18} color="#FFFFFF" />
+              <Ionicons name="business-outline" size={18} color={iconColor} />
               <TextInput
                 style={{
-                  color: '#FFFFFF',
+                  color: textColor,
                   fontSize: 16,
                 }}
                 value={organizationName}
                 onChangeText={setOrganizationName}
                 placeholder="Organization"
-                placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                placeholderTextColor={placeholderColor}
                 editable={!isSaving}
               />
             </View>
@@ -348,7 +359,7 @@ export default function PreviewScreen() {
             <View style={{ marginBottom: 20 }}>
               <TextInput
                 style={{
-                  color: '#FFFFFF',
+                  color: textColor,
                   fontSize: 15,
                   lineHeight: 22,
                   textAlign: 'center',
@@ -356,7 +367,7 @@ export default function PreviewScreen() {
                 value={description}
                 onChangeText={setDescription}
                 placeholder="Description"
-                placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                placeholderTextColor={placeholderColor}
                 editable={!isSaving}
                 multiline
                 textAlignVertical="top"
@@ -373,7 +384,7 @@ export default function PreviewScreen() {
               marginBottom: 16,
               gap: 8,
             }}>
-              <Ionicons name="link-outline" size={18} color="#FFFFFF" />
+              <Ionicons name="link-outline" size={18} color={iconColor} />
               <TextInput
                 style={{
                   color: '#3B82F6',
@@ -405,13 +416,13 @@ export default function PreviewScreen() {
                   <Ionicons name="logo-twitter" size={20} color="#1DA1F2" />
                   <TextInput
                     style={{
-                      color: '#FFFFFF',
+                      color: textColor,
                       fontSize: 12,
                     }}
                     value={twitter}
                     onChangeText={setTwitter}
                     placeholder="@username"
-                    placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                    placeholderTextColor={placeholderColor}
                     editable={!isSaving}
                     autoCapitalize="none"
                   />
@@ -422,13 +433,13 @@ export default function PreviewScreen() {
                   <Ionicons name="logo-instagram" size={20} color="#E4405F" />
                   <TextInput
                     style={{
-                      color: '#FFFFFF',
+                      color: textColor,
                       fontSize: 12,
                     }}
                     value={instagram}
                     onChangeText={setInstagram}
                     placeholder="@username"
-                    placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                    placeholderTextColor={placeholderColor}
                     editable={!isSaving}
                     autoCapitalize="none"
                   />
@@ -439,13 +450,13 @@ export default function PreviewScreen() {
                   <Ionicons name="logo-facebook" size={20} color="#1877F2" />
                   <TextInput
                     style={{
-                      color: '#FFFFFF',
+                      color: textColor,
                       fontSize: 12,
                     }}
                     value={facebook}
                     onChangeText={setFacebook}
                     placeholder="Page name"
-                    placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                    placeholderTextColor={placeholderColor}
                     editable={!isSaving}
                   />
                 </View>
@@ -456,21 +467,21 @@ export default function PreviewScreen() {
           {/* Required fields if missing */}
           {!date && (
             <View style={{ marginBottom: 16 }}>
-              <Text style={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: 14, marginBottom: 8 }}>
+              <Text style={{ color: placeholderColor, fontSize: 14, marginBottom: 8 }}>
                 Date *
               </Text>
               <TextInput
                 style={{
-                  color: '#FFFFFF',
+                  color: textColor,
                   fontSize: 16,
                   borderBottomWidth: 1,
-                  borderBottomColor: 'rgba(255, 255, 255, 0.2)',
+                  borderBottomColor: borderColor,
                   paddingVertical: 8,
                 }}
                 value={date}
                 onChangeText={setDate}
                 placeholder="YYYY-MM-DD"
-                placeholderTextColor="rgba(255, 255, 255, 0.3)"
+                placeholderTextColor={placeholderColorLight}
                 editable={!isSaving}
               />
             </View>
@@ -502,9 +513,9 @@ export default function PreviewScreen() {
             isInteractive
           >
             {isSaving ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <ActivityIndicator color={textColor} />
             ) : (
-              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>
+              <Text style={{ color: textColor, fontSize: 16, fontWeight: '600' }}>
                 Submit
               </Text>
             )}

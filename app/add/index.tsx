@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useIsFocused } from '@react-navigation/native';
 import { CameraType, CameraView, useCameraPermissions } from 'expo-camera';
 import Constants from 'expo-constants';
 import { GlassView } from 'expo-glass-effect';
@@ -15,11 +16,17 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Colors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 import { extractEventFromImage } from '../../services/visionExtraction';
 
 export default function AddScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
+  const { colorScheme } = useTheme();
+  const backgroundColor = Colors[colorScheme].background;
+  const textColor = Colors[colorScheme].text;
   const [facing, setFacing] = useState<CameraType>('back');
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
@@ -29,14 +36,14 @@ export default function AddScreen() {
 
   if (!permission) {
     // Camera permissions are still loading
-    return <View />;
+    return <View style={{ flex: 1, backgroundColor }} />;
   }
 
   if (!permission.granted) {
     // Camera permissions are not granted yet
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
-        <Text style={{ fontSize: 18, textAlign: 'center', marginBottom: 16 }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor }}>
+        <Text style={{ fontSize: 18, textAlign: 'center', marginBottom: 16, color: textColor }}>
           We need your permission to use the camera
         </Text>
         <TouchableOpacity
@@ -208,10 +215,10 @@ export default function AddScreen() {
   };
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor }}>
       {capturedImageUri ? (
         // Show captured/selected image
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 16 }}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 16, backgroundColor }}>
           <View style={{ width: '100%', height: 400, borderRadius: 8, overflow: 'hidden', marginBottom: 16 }}>
             <Image
               source={{ uri: capturedImageUri }}
@@ -222,7 +229,7 @@ export default function AddScreen() {
           {isProcessing && (
             <View style={{ alignItems: 'center' }}>
               <ActivityIndicator size="large" color="#3B82F6" />
-              <Text style={{ color: '#666', marginTop: 16 }}>
+              <Text style={{ color: colorScheme === 'dark' ? '#9BA1A6' : '#666', marginTop: 16 }}>
                 Extracting event information...
               </Text>
             </View>
@@ -246,14 +253,16 @@ export default function AddScreen() {
           )}
         </View>
       ) : (
-        // Full screen camera view
+        // Full screen camera view - only render when screen is focused
         <View style={{ flex: 1 }}>
-          <CameraView
-            ref={cameraRef}
-            style={StyleSheet.absoluteFill}
-            facing={facing}
-            zoom={zoomValue}
-          />
+          {isFocused && (
+            <CameraView
+              ref={cameraRef}
+              style={StyleSheet.absoluteFill}
+              facing={facing}
+              zoom={zoomValue}
+            />
+          )}
 
           {/* Glass toolbar - positioned above nav bar */}
           <View

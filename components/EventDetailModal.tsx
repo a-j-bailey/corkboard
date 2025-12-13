@@ -9,7 +9,9 @@ import {
     useWindowDimensions
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Colors } from '../constants/theme';
 import { Event } from '../contexts/EventContext';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface EventDetailModalProps {
   visible: boolean;
@@ -24,6 +26,9 @@ export default function EventDetailModal({
 }: EventDetailModalProps) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const { colorScheme } = useTheme();
+  const textColor = Colors[colorScheme].text;
+  const imageBgColor = colorScheme === 'dark' ? '#1F1F1F' : '#E5E7EB';
   const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
 
   // Sync bottom sheet with visible prop
@@ -41,7 +46,7 @@ export default function EventDetailModal({
   // Calculate image dimensions for 2:3 aspect ratio
   const imagePadding = 20;
   const availableWidth = width - (imagePadding * 2);
-  const imageWidth = availableWidth;
+  const imageWidth = availableWidth * 0.6; // 60% width
   const imageHeight = (imageWidth * 3) / 2; // 2:3 aspect ratio
 
   if (!event) {
@@ -57,7 +62,7 @@ export default function EventDetailModal({
     >
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={{ paddingBottom: insets.bottom + 60 }}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 90 }}
           showsVerticalScrollIndicator={false}
         >
           {/* Poster Image - 2:3 aspect ratio, centered with padding */}
@@ -73,7 +78,7 @@ export default function EventDetailModal({
                 height: imageHeight,
                 borderRadius: 12,
                 overflow: 'hidden',
-                backgroundColor: '#1F1F1F',
+                backgroundColor: imageBgColor,
               }}>
                 <Image
                   source={{ uri: event.posterImage }}
@@ -89,7 +94,7 @@ export default function EventDetailModal({
             {/* Title */}
             <View style={{ marginBottom: 20 }}>
               <Text style={{
-                color: '#FFFFFF',
+                color: textColor,
                 fontSize: 28,
                 fontWeight: '700',
                 textAlign: 'center',
@@ -111,9 +116,9 @@ export default function EventDetailModal({
               }}>
                 {event.date && (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Ionicons name="calendar-outline" size={18} color="#FFFFFF" />
+                    <Ionicons name="calendar-outline" size={18} color={textColor} />
                     <Text style={{
-                      color: '#FFFFFF',
+                      color: textColor,
                       fontSize: 16,
                       fontWeight: '500',
                     }}>
@@ -123,9 +128,9 @@ export default function EventDetailModal({
                 )}
                 {event.time && (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Ionicons name="time-outline" size={18} color="#FFFFFF" />
+                    <Ionicons name="time-outline" size={18} color={textColor} />
                     <Text style={{
-                      color: '#FFFFFF',
+                      color: textColor,
                       fontSize: 16,
                       fontWeight: '500',
                     }}>
@@ -144,9 +149,9 @@ export default function EventDetailModal({
                 marginBottom: 16,
                 gap: 8,
               }}>
-                <Ionicons name="location-outline" size={18} color="#FFFFFF" style={{ marginTop: 2 }} />
+                <Ionicons name="location-outline" size={18} color={textColor} style={{ marginTop: 2 }} />
                 <Text style={{
-                  color: '#FFFFFF',
+                  color: textColor,
                   fontSize: 16,
                   flex: 1,
                 }}>
@@ -163,9 +168,9 @@ export default function EventDetailModal({
                 marginBottom: 16,
                 gap: 8,
               }}>
-                <Ionicons name="cash-outline" size={18} color="#FFFFFF" />
+                <Ionicons name="cash-outline" size={18} color={textColor} />
                 <Text style={{
-                  color: '#FFFFFF',
+                  color: textColor,
                   fontSize: 16,
                   fontWeight: '500',
                 }}>
@@ -182,9 +187,9 @@ export default function EventDetailModal({
                 marginBottom: 16,
                 gap: 8,
               }}>
-                <Ionicons name="business-outline" size={18} color="#FFFFFF" />
+                <Ionicons name="business-outline" size={18} color={textColor} />
                 <Text style={{
-                  color: '#FFFFFF',
+                  color: textColor,
                   fontSize: 16,
                 }}>
                   {event.organizationName}
@@ -196,7 +201,7 @@ export default function EventDetailModal({
             {event.description && (
               <View style={{ marginBottom: 20 }}>
                 <Text style={{
-                  color: '#FFFFFF',
+                  color: textColor,
                   fontSize: 15,
                   lineHeight: 22,
                   textAlign: 'center',
@@ -215,7 +220,7 @@ export default function EventDetailModal({
                 marginBottom: 16,
                 gap: 8,
               }}>
-                <Ionicons name="link-outline" size={18} color="#FFFFFF" />
+                <Ionicons name="link-outline" size={18} color={textColor} />
                 <Text style={{
                   color: '#3B82F6',
                   fontSize: 15,
@@ -240,7 +245,7 @@ export default function EventDetailModal({
                   <View style={{ alignItems: 'center', gap: 4 }}>
                     <Ionicons name="logo-twitter" size={20} color="#1DA1F2" />
                     <Text style={{
-                      color: '#FFFFFF',
+                      color: textColor,
                       fontSize: 12,
                     }}>
                       {event.socialMediaHandles.twitter}
@@ -251,7 +256,7 @@ export default function EventDetailModal({
                   <View style={{ alignItems: 'center', gap: 4 }}>
                     <Ionicons name="logo-instagram" size={20} color="#E4405F" />
                     <Text style={{
-                      color: '#FFFFFF',
+                      color: textColor,
                       fontSize: 12,
                     }}>
                       {event.socialMediaHandles.instagram}
@@ -262,7 +267,7 @@ export default function EventDetailModal({
                   <View style={{ alignItems: 'center', gap: 4 }}>
                     <Ionicons name="logo-facebook" size={20} color="#1877F2" />
                     <Text style={{
-                      color: '#FFFFFF',
+                      color: textColor,
                       fontSize: 12,
                     }}>
                       {event.socialMediaHandles.facebook}
