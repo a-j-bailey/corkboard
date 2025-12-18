@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { GlassView } from 'expo-glass-effect';
 import { Image } from 'expo-image';
 import { useEffect, useState } from 'react';
+import { XSymbol } from './XSymbol';
 import {
   ActivityIndicator,
   Alert,
@@ -43,7 +44,7 @@ export default function EventPreviewModal({
   const [websiteUrl, setWebsiteUrl] = useState(eventData.websiteUrl || '');
   const [description, setDescription] = useState(eventData.description || '');
   const [organizationName, setOrganizationName] = useState(eventData.organizationName || '');
-  const [twitter, setTwitter] = useState(eventData.socialMediaHandles?.twitter || '');
+  const [x, setX] = useState(eventData.socialMediaHandles?.x || '');
   const [instagram, setInstagram] = useState(eventData.socialMediaHandles?.instagram || '');
   const [facebook, setFacebook] = useState(eventData.socialMediaHandles?.facebook || '');
 
@@ -69,7 +70,7 @@ export default function EventPreviewModal({
     const newWebsiteUrl = eventData.websiteUrl || '';
     const newDescription = eventData.description || '';
     const newOrganizationName = eventData.organizationName || '';
-    const newTwitter = eventData.socialMediaHandles?.twitter || '';
+    const newX = eventData.socialMediaHandles?.x || '';
     const newInstagram = eventData.socialMediaHandles?.instagram || '';
     const newFacebook = eventData.socialMediaHandles?.facebook || '';
     
@@ -82,7 +83,7 @@ export default function EventPreviewModal({
     console.log('  - Website URL:', newWebsiteUrl || '(empty)');
     console.log('  - Description:', newDescription ? `${newDescription.substring(0, 50)}...` : '(empty)');
     console.log('  - Organization:', newOrganizationName || '(empty)');
-    console.log('  - Twitter:', newTwitter || '(empty)');
+    console.log('  - X:', newX || '(empty)');
     console.log('  - Instagram:', newInstagram || '(empty)');
     console.log('  - Facebook:', newFacebook || '(empty)');
     
@@ -94,7 +95,7 @@ export default function EventPreviewModal({
     setWebsiteUrl(newWebsiteUrl);
     setDescription(newDescription);
     setOrganizationName(newOrganizationName);
-    setTwitter(newTwitter);
+    setX(newX);
     setInstagram(newInstagram);
     setFacebook(newFacebook);
   }, [eventData, posterImageUri]);
@@ -128,7 +129,7 @@ export default function EventPreviewModal({
 
     try {
       const socialMediaHandles: SocialMediaHandles = {};
-      if (twitter.trim()) socialMediaHandles.twitter = twitter.trim();
+      if (x.trim()) socialMediaHandles.x = x.trim();
       if (instagram.trim()) socialMediaHandles.instagram = instagram.trim();
       if (facebook.trim()) socialMediaHandles.facebook = facebook.trim();
 
@@ -423,7 +424,7 @@ export default function EventPreviewModal({
           )}
 
           {/* Social Media Handles */}
-          {(twitter || instagram || facebook) && (
+          {(x || instagram || facebook) && (
             <View style={{
               flexDirection: 'row',
               justifyContent: 'center',
@@ -431,16 +432,16 @@ export default function EventPreviewModal({
               gap: 16,
               marginBottom: 20,
             }}>
-              {twitter && (
+              {x && (
                 <View style={{ alignItems: 'center', gap: 4 }}>
-                  <Ionicons name="logo-twitter" size={20} color="#1DA1F2" />
+                  <XSymbol size={20} color="#FFFFFF" />
                   <TextInput
                     style={{
                       color: '#FFFFFF',
                       fontSize: 12,
                     }}
-                    value={twitter}
-                    onChangeText={setTwitter}
+                    value={x}
+                    onChangeText={setX}
                     placeholder="@username"
                     placeholderTextColor="rgba(255, 255, 255, 0.5)"
                     editable={!isSaving}

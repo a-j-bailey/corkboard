@@ -15,7 +15,7 @@ const eventSchema = z.object({
       websiteUrl: z.string().optional().describe('Event website URL'),
       socialMediaHandles: z
         .object({
-          twitter: z.string().optional(),
+          x: z.string().optional(),
           instagram: z.string().optional(),
           facebook: z.string().optional(),
         })
@@ -104,8 +104,8 @@ ${text}`,
     // Convert social media handles to the format expected by Event type
     const socialMediaHandles = firstEvent.socialMediaHandles
       ? {
-          ...(firstEvent.socialMediaHandles.twitter && {
-            twitter: firstEvent.socialMediaHandles.twitter,
+          ...(firstEvent.socialMediaHandles.x && {
+            x: firstEvent.socialMediaHandles.x,
           }),
           ...(firstEvent.socialMediaHandles.instagram && {
             instagram: firstEvent.socialMediaHandles.instagram,
@@ -329,12 +329,12 @@ function extractUrls(text: string): string[] {
 function extractSocialHandles(text: string): SocialMediaHandles | undefined {
   const handles: SocialMediaHandles = {};
 
-  // Twitter/X handles: @username
-  const twitterPattern = /@(\w+)/gi;
-  const twitterMatches = text.match(twitterPattern);
-  if (twitterMatches && twitterMatches.length > 0) {
-    // Take the first @ mention as Twitter
-    handles.twitter = twitterMatches[0];
+  // X handles: @username
+  const xPattern = /@(\w+)/gi;
+  const xMatches = text.match(xPattern);
+  if (xMatches && xMatches.length > 0) {
+    // Take the first @ mention as X
+    handles.x = xMatches[0];
   }
 
   // Instagram: @username (often mentioned as "IG: @username" or "Instagram: @username")

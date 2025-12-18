@@ -1,7 +1,7 @@
 import React, { createContext, ReactNode, useContext, useState } from 'react';
 
 export interface SocialMediaHandles {
-  twitter?: string;
+  x?: string;
   instagram?: string;
   facebook?: string;
   [key: string]: string | undefined;
@@ -41,7 +41,7 @@ const dummyEvents: Event[] = [
     cost: '$45',
     websiteUrl: 'https://example.com/summer-fest',
     socialMediaHandles: {
-      twitter: '@summerfest',
+      x: '@summerfest',
       instagram: '@summerfest2024',
     },
     description: 'Join us for an amazing day of live music featuring top artists from around the world.',
@@ -58,7 +58,7 @@ const dummyEvents: Event[] = [
     cost: '$150',
     websiteUrl: 'https://example.com/tech-summit',
     socialMediaHandles: {
-      twitter: '@techsummit',
+      x: '@techsummit',
       linkedin: 'tech-innovation-summit',
     },
     description: 'Explore the latest in technology and innovation with industry leaders.',

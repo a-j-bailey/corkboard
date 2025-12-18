@@ -16,7 +16,7 @@ const eventSchema = z.object({
       websiteUrl: z.string().optional().describe('Event website URL'),
       socialMediaHandles: z
         .object({
-          twitter: z.string().optional(),
+          x: z.string().optional(),
           instagram: z.string().optional(),
           facebook: z.string().optional(),
         })
@@ -313,8 +313,8 @@ If there are multiple events on the poster, extract all of them. Return the info
       // Convert social media handles to the format expected by Event type
       const socialMediaHandles = firstEvent.socialMediaHandles
         ? {
-            ...(firstEvent.socialMediaHandles.twitter && {
-              twitter: firstEvent.socialMediaHandles.twitter,
+            ...(firstEvent.socialMediaHandles.x && {
+              x: firstEvent.socialMediaHandles.x,
             }),
             ...(firstEvent.socialMediaHandles.instagram && {
               instagram: firstEvent.socialMediaHandles.instagram,

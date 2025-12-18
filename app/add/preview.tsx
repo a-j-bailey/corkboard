@@ -17,6 +17,8 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Colors } from '../../constants/theme';
 import { Event, SocialMediaHandles, useEvents } from '../../contexts/EventContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { formatEventDate, formatEventTime } from '../../utils/dateFormatter';
+import { XSymbol } from '../../components/XSymbol';
 
 export default function PreviewScreen() {
   const router = useRouter();
@@ -54,7 +56,7 @@ export default function PreviewScreen() {
   const [websiteUrl, setWebsiteUrl] = useState(initialEventData.websiteUrl || '');
   const [description, setDescription] = useState(initialEventData.description || '');
   const [organizationName, setOrganizationName] = useState(initialEventData.organizationName || '');
-  const [twitter, setTwitter] = useState(initialEventData.socialMediaHandles?.twitter || '');
+  const [x, setX] = useState(initialEventData.socialMediaHandles?.x || '');
   const [instagram, setInstagram] = useState(initialEventData.socialMediaHandles?.instagram || '');
   const [facebook, setFacebook] = useState(initialEventData.socialMediaHandles?.facebook || '');
 
@@ -68,7 +70,7 @@ export default function PreviewScreen() {
     setWebsiteUrl(initialEventData.websiteUrl || '');
     setDescription(initialEventData.description || '');
     setOrganizationName(initialEventData.organizationName || '');
-    setTwitter(initialEventData.socialMediaHandles?.twitter || '');
+    setX(initialEventData.socialMediaHandles?.x || '');
     setInstagram(initialEventData.socialMediaHandles?.instagram || '');
     setFacebook(initialEventData.socialMediaHandles?.facebook || '');
   }, [params.eventData, params.posterImageUri]);
@@ -88,7 +90,7 @@ export default function PreviewScreen() {
 
     try {
       const socialMediaHandles: SocialMediaHandles = {};
-      if (twitter.trim()) socialMediaHandles.twitter = twitter.trim();
+      if (x.trim()) socialMediaHandles.x = x.trim();
       if (instagram.trim()) socialMediaHandles.instagram = instagram.trim();
       if (facebook.trim()) socialMediaHandles.facebook = facebook.trim();
 
@@ -194,14 +196,14 @@ export default function PreviewScreen() {
         )}
 
         {/* Event Information */}
-        <View style={{ paddingHorizontal: 20 }}>
+        <View style={{ paddingHorizontal: 20, alignItems: 'center' }}>
           {/* Title */}
           {title ? (
-            <View style={{ marginBottom: 20 }}>
+            <View style={{ marginBottom: 24 }}>
               <TextInput
                 style={{
                   color: textColor,
-                  fontSize: 28,
+                  fontSize: 36,
                   fontWeight: '700',
                   textAlign: 'center',
                   paddingVertical: 8,
@@ -215,11 +217,11 @@ export default function PreviewScreen() {
               />
             </View>
           ) : (
-            <View style={{ marginBottom: 20 }}>
+            <View style={{ marginBottom: 24 }}>
               <TextInput
                 style={{
                   color: placeholderColor,
-                  fontSize: 28,
+                  fontSize: 36,
                   fontWeight: '700',
                   textAlign: 'center',
                   paddingVertical: 8,
@@ -234,66 +236,38 @@ export default function PreviewScreen() {
             </View>
           )}
 
-          {/* Date and Time */}
+          {/* Date and Time - Centered */}
           {(date || time) && (
             <View style={{
-              flexDirection: 'row',
-              justifyContent: 'center',
               alignItems: 'center',
-              marginBottom: 16,
-              gap: 12,
+              marginBottom: 12,
             }}>
-              {date && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="calendar-outline" size={18} color={textColor} />
-                  <TextInput
-                    style={{
-                      color: textColor,
-                      fontSize: 16,
-                      fontWeight: '500',
-                    }}
-                    value={date}
-                    onChangeText={setDate}
-                    placeholder="Date"
-                    placeholderTextColor={placeholderColor}
-                    editable={!isSaving}
-                  />
-                </View>
-              )}
-              {time && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="time-outline" size={18} color={textColor} />
-                  <TextInput
-                    style={{
-                      color: textColor,
-                      fontSize: 16,
-                      fontWeight: '500',
-                    }}
-                    value={time}
-                    onChangeText={setTime}
-                    placeholder="Time"
-                    placeholderTextColor={placeholderColor}
-                    editable={!isSaving}
-                  />
-                </View>
-              )}
+              <Text style={{
+                color: textColor,
+                fontSize: 18,
+                fontWeight: '500',
+                textAlign: 'center',
+              }}>
+                {[
+                  date ? formatEventDate(date) : '',
+                  time ? formatEventTime(time) : ''
+                ].filter(Boolean).join(', ')}
+              </Text>
             </View>
           )}
 
-          {/* Location */}
+          {/* Location - Centered */}
           {address && (
             <View style={{
-              flexDirection: 'row',
-              alignItems: 'flex-start',
-              marginBottom: 16,
-              gap: 8,
+              alignItems: 'center',
+              marginBottom: 12,
             }}>
-              <Ionicons name="location-outline" size={18} color={textColor} style={{ marginTop: 2 }} />
               <TextInput
                 style={{
                   color: textColor,
-                  fontSize: 16,
-                  flex: 1,
+                  fontSize: 18,
+                  fontWeight: '400',
+                  textAlign: 'center',
                 }}
                 value={address}
                 onChangeText={setAddress}
@@ -301,6 +275,28 @@ export default function PreviewScreen() {
                 placeholderTextColor={placeholderColor}
                 editable={!isSaving}
                 multiline
+              />
+            </View>
+          )}
+
+          {/* Cost - Centered */}
+          {cost && (
+            <View style={{
+              alignItems: 'center',
+              marginBottom: 16,
+            }}>
+              <TextInput
+                style={{
+                  color: textColor,
+                  fontSize: 18,
+                  fontWeight: '600',
+                  textAlign: 'center',
+                }}
+                value={cost}
+                onChangeText={setCost}
+                placeholder="Cost"
+                placeholderTextColor={placeholderColor}
+                editable={!isSaving}
               />
             </View>
           )}
@@ -397,7 +393,7 @@ export default function PreviewScreen() {
           )}
 
           {/* Additional Details Card */}
-          {(cost || websiteUrl || twitter || instagram || facebook) && (
+          {(websiteUrl || x || instagram || facebook) && (
             <GlassView
               style={{
                 borderRadius: 20,
@@ -416,23 +412,6 @@ export default function PreviewScreen() {
                 Additional Details
               </Text>
               <View style={{ gap: 16 }}>
-                {cost && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <Ionicons name="cash-outline" size={20} color={textColor} style={{ opacity: 0.7 }} />
-                    <TextInput
-                      style={{
-                        color: textColor,
-                        fontSize: 16,
-                        flex: 1,
-                      }}
-                      value={cost}
-                      onChangeText={setCost}
-                      placeholder="Cost"
-                      placeholderTextColor={placeholderColor}
-                      editable={!isSaving}
-                    />
-                  </View>
-                )}
                 {websiteUrl && (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                     <Ionicons name="link-outline" size={20} color={textColor} style={{ opacity: 0.7 }} />
@@ -453,18 +432,18 @@ export default function PreviewScreen() {
                     />
                   </View>
                 )}
-                {(twitter || instagram || facebook) && (
+                {(x || instagram || facebook) && (
                   <View style={{ flexDirection: 'row', gap: 16, flexWrap: 'wrap' }}>
-                    {twitter && (
+                    {x && (
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Ionicons name="logo-twitter" size={20} color="#1DA1F2" />
+                        <XSymbol size={20} color={textColor} />
                         <TextInput
                           style={{
                             color: textColor,
                             fontSize: 14,
                           }}
-                          value={twitter}
-                          onChangeText={setTwitter}
+                          value={x}
+                          onChangeText={setX}
                           placeholder="@username"
                           placeholderTextColor={placeholderColor}
                           editable={!isSaving}
