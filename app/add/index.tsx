@@ -275,7 +275,6 @@ export default function AddScreen() {
                     overflow: 'hidden',
                   }}
                   glassEffectStyle="regular"
-                  isInteractive
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                     <Ionicons
@@ -312,7 +311,6 @@ export default function AddScreen() {
                     overflow: 'hidden',
                   }}
                   glassEffectStyle="regular"
-                  isInteractive
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                     <Ionicons

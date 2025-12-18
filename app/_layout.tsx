@@ -2,6 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import '../global.css';
 
+import { Colors } from '@/constants/theme';
 import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
 import { EventProvider } from '../contexts/EventContext';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
@@ -11,7 +12,7 @@ function RootLayoutContent() {
   
   return (
     <>
-      <NativeTabs>
+      <NativeTabs tintColor={Colors[colorScheme].tint}>
         <NativeTabs.Trigger name="index">
           <Icon sf="square.grid.2x2.fill" />
           <Label>Board</Label>

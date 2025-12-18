@@ -3,10 +3,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useEffect, useState } from 'react';
 import {
-    ScrollView,
-    Text,
-    View,
-    useWindowDimensions
+  ScrollView,
+  Text,
+  View,
+  useWindowDimensions
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../constants/theme';
