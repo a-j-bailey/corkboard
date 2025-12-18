@@ -1,0 +1,89 @@
+# Supabase Setup Instructions
+
+## Database Setup
+
+### 1. Create the Events Table
+
+Run the migration file `migrations/001_create_events_table.sql` in your Supabase SQL editor, or execute the following SQL:
+
+```sql
+-- See migrations/001_create_events_table.sql for the full schema
+```
+
+### 2. Create Storage Bucket
+
+1. Go to Storage in your Supabase dashboard
+2. Create a new bucket named `posters`
+3. Set it to **Public** (so images can be accessed without authentication)
+4. Configure the following policies:
+
+**Storage Policies for `posters` bucket:**
+
+Run these SQL commands in your Supabase SQL editor:
+
+```sql
+-- Allow public read access (anyone can view images)
+CREATE POLICY "Public read access"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'posters');
+
+-- Allow authenticated users to upload files
+CREATE POLICY "Authenticated users can upload"
+ON storage.objects FOR INSERT
+WITH CHECK (
+  bucket_id = 'posters' 
+  AND auth.uid() IS NOT NULL
+);
+
+-- Allow authenticated users to update files
+CREATE POLICY "Authenticated users can update"
+ON storage.objects FOR UPDATE
+USING (
+  bucket_id = 'posters' 
+  AND auth.uid() IS NOT NULL
+)
+WITH CHECK (
+  bucket_id = 'posters' 
+  AND auth.uid() IS NOT NULL
+);
+
+-- Allow authenticated users to delete files
+CREATE POLICY "Authenticated users can delete"
+ON storage.objects FOR DELETE
+USING (
+  bucket_id = 'posters' 
+  AND auth.uid() IS NOT NULL
+);
+```
+
+**Important Notes:**
+- Make sure the bucket is set to **Public** in the Supabase dashboard (Settings > Storage > posters > Public bucket)
+- The policies above allow any authenticated user to upload/update/delete. If you want to restrict to only the file owner, you'll need to store the user_id in the file path or metadata.
+
+## Environment Variables
+
+Make sure your `app.json` includes Supabase configuration:
+
+```json
+{
+  "expo": {
+    "extra": {
+      "supabaseUrl": "YOUR_SUPABASE_URL",
+      "supabaseAnonKey": "YOUR_SUPABASE_ANON_KEY"
+    }
+  }
+}
+```
+
+Or set environment variables:
+- `EXPO_PUBLIC_SUPABASE_URL`
+- `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+
+## Testing
+
+After setup, test the integration by:
+1. Creating an event through the app
+2. Verifying it appears in the `events` table
+3. Checking that the poster image is uploaded to the `posters` bucket
+4. Verifying RLS policies work correctly (users can only edit their own events)
+

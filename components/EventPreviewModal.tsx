@@ -16,6 +16,9 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Event, SocialMediaHandles, useEvents } from '../contexts/EventContext';
+import { parseDates, parsePriceToNumber } from '../services/eventParser';
+import { geocodeLocation } from '../services/geocodingService';
+import { formatDateOnly, formatTime } from '../utils/dateFormatter';
 
 interface EventPreviewModalProps {
   visible: boolean;
@@ -63,10 +66,40 @@ export default function EventPreviewModal({
     console.log('[EventPreviewModal] Poster image URI:', posterImageUri);
     
     const newTitle = eventData.title || '';
-    const newDate = eventData.date || '';
-    const newTime = eventData.time || '';
+    
+    // Handle both old format (date/time) and new format (dates)
+    let newDate = '';
+    let newTime = '';
+    if (eventData.dates && eventData.dates.length > 0) {
+      // New format: extract first date
+      const firstDate = new Date(eventData.dates[0].start);
+      newDate = firstDate.toISOString().split('T')[0];
+      if (firstDate.getHours() !== 0 || firstDate.getMinutes() !== 0) {
+        const hours = firstDate.getHours();
+        const minutes = firstDate.getMinutes();
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        const displayHours = hours % 12 || 12;
+        newTime = `${displayHours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+      }
+    } else {
+      // Old format: use date and time directly
+      newDate = (eventData as any).date || '';
+      newTime = (eventData as any).time || '';
+    }
+    
+    // Handle both old format (cost) and new format (price)
+    let newCost = '';
+    if (eventData.price !== null && eventData.price !== undefined) {
+      if (eventData.price === 0) {
+        newCost = 'Free';
+      } else {
+        newCost = `$${eventData.price}`;
+      }
+    } else {
+      newCost = (eventData as any).cost || '';
+    }
+    
     const newAddress = eventData.address || '';
-    const newCost = eventData.cost || '';
     const newWebsiteUrl = eventData.websiteUrl || '';
     const newDescription = eventData.description || '';
     const newOrganizationName = eventData.organizationName || '';
@@ -133,21 +166,51 @@ export default function EventPreviewModal({
       if (instagram.trim()) socialMediaHandles.instagram = instagram.trim();
       if (facebook.trim()) socialMediaHandles.facebook = facebook.trim();
 
-      const eventToSave: Omit<Event, 'id' | 'createdAt'> = {
+      // Parse dates and price
+      const dates = parseDates(date.trim(), time.trim() || undefined);
+      if (dates.length === 0) {
+        Alert.alert('Error', 'Could not parse event date. Please check the format.');
+        setIsSaving(false);
+        return;
+      }
+
+      const price = parsePriceToNumber(cost.trim() || undefined);
+
+      // Geocode location if provided
+      let locationName: string | undefined;
+      let latitude: number | undefined;
+      let longitude: number | undefined;
+      
+      if (address.trim()) {
+        try {
+          const geocoded = await geocodeLocation(address.trim());
+          if (geocoded) {
+            locationName = geocoded.name;
+            latitude = geocoded.latitude;
+            longitude = geocoded.longitude;
+          }
+        } catch (geocodeError) {
+          console.warn('[EventPreviewModal] Geocoding failed, saving without coordinates:', geocodeError);
+        }
+      }
+
+      const eventToSave: Omit<Event, 'id' | 'userId' | 'createdAt' | 'updatedAt'> = {
         title: title.trim(),
-        date: date.trim(),
-        time: time.trim() || undefined,
+        dates: dates,
+        price: price,
+        locationName: locationName,
         address: address.trim() || undefined,
-        cost: cost.trim() || undefined,
+        latitude: latitude,
+        longitude: longitude,
         websiteUrl: websiteUrl.trim() || undefined,
         description: description.trim() || undefined,
         organizationName: organizationName.trim() || undefined,
         socialMediaHandles: Object.keys(socialMediaHandles).length > 0 ? socialMediaHandles : undefined,
-        posterImage: posterImageUri || eventData.posterImage || '',
+        posterImage: '', // Will be set after image upload
       };
 
       console.log('[EventPreviewModal] Event data to save:', JSON.stringify(eventToSave, null, 2));
-      addEvent(eventToSave);
+      await addEvent(eventToSave, posterImageUri || eventData.posterImage);
       console.log('[EventPreviewModal] Event saved successfully');
       Alert.alert('Success', 'Event saved successfully!');
       setIsBottomSheetOpen(false);
@@ -257,51 +320,112 @@ export default function EventPreviewModal({
             </View>
           )}
 
-          {/* Date and Time */}
-          {(date || time) && (
-            <View style={{
-              flexDirection: 'row',
-              justifyContent: 'center',
-              alignItems: 'center',
-              marginBottom: 16,
-              gap: 12,
-            }}>
-              {date && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="calendar-outline" size={18} color="#FFFFFF" />
-                  <TextInput
+          {/* Parse dates to check if multiple */}
+          {(() => {
+            const parsedDates = parseDates(date || '', time || undefined);
+            const hasMultipleDates = parsedDates.length > 1;
+            
+            // Show multiple dates in a card
+            if (hasMultipleDates) {
+              return (
+                <View style={{ marginBottom: 20 }}>
+                  <GlassView
                     style={{
-                      color: '#FFFFFF',
-                      fontSize: 16,
-                      fontWeight: '500',
+                      borderRadius: 20,
+                      padding: 20,
+                      overflow: 'hidden',
                     }}
-                    value={date}
-                    onChangeText={setDate}
-                    placeholder="Date"
-                    placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                    editable={!isSaving}
-                  />
-                </View>
-              )}
-              {time && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="time-outline" size={18} color="#FFFFFF" />
-                  <TextInput
-                    style={{
+                    glassEffectStyle="regular"
+                  >
+                    <Text style={{
                       color: '#FFFFFF',
-                      fontSize: 16,
-                      fontWeight: '500',
-                    }}
-                    value={time}
-                    onChangeText={setTime}
-                    placeholder="Time"
-                    placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                    editable={!isSaving}
-                  />
+                      fontSize: 14,
+                      fontWeight: '600',
+                      marginBottom: 12,
+                      opacity: 0.7,
+                    }}>
+                      Event Dates
+                    </Text>
+                    <View style={{ gap: 8 }}>
+                      {parsedDates.map((dateItem, index) => {
+                        const dateObj = new Date(dateItem.start);
+                        const isDateOnly = dateObj.getUTCHours() === 0 && dateObj.getUTCMinutes() === 0;
+                        
+                        return (
+                          <View key={index} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <Text style={{
+                              color: '#FFFFFF',
+                              fontSize: 16,
+                              fontWeight: '500',
+                              flex: 1,
+                            }}>
+                              {formatDateOnly(dateObj)}
+                            </Text>
+                            {!isDateOnly && (
+                              <Text style={{
+                                color: '#FFFFFF',
+                                fontSize: 14,
+                                opacity: 0.7,
+                              }}>
+                                {formatTime(dateObj)}
+                                {dateItem.end && ` - ${formatTime(new Date(dateItem.end))}`}
+                              </Text>
+                            )}
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </GlassView>
                 </View>
-              )}
-            </View>
-          )}
+              );
+            }
+            
+            // Single date - show as editable inputs
+            return (date || time) ? (
+              <View style={{
+                flexDirection: 'row',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: 16,
+                gap: 12,
+              }}>
+                {date && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Ionicons name="calendar-outline" size={18} color="#FFFFFF" />
+                    <TextInput
+                      style={{
+                        color: '#FFFFFF',
+                        fontSize: 16,
+                        fontWeight: '500',
+                      }}
+                      value={date}
+                      onChangeText={setDate}
+                      placeholder="Date"
+                      placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                      editable={!isSaving}
+                    />
+                  </View>
+                )}
+                {time && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Ionicons name="time-outline" size={18} color="#FFFFFF" />
+                    <TextInput
+                      style={{
+                        color: '#FFFFFF',
+                        fontSize: 16,
+                        fontWeight: '500',
+                      }}
+                      value={time}
+                      onChangeText={setTime}
+                      placeholder="Time"
+                      placeholderTextColor="rgba(255, 255, 255, 0.5)"
+                      editable={!isSaving}
+                    />
+                  </View>
+                )}
+              </View>
+            ) : null;
+          })()}
 
           {/* Location */}
           {address && (

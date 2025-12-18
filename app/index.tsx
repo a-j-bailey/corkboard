@@ -89,7 +89,8 @@ export default function HomeScreen() {
           padding, 
           paddingTop: padding + insets.top,
           paddingBottom: padding + insets.bottom,
-          backgroundColor 
+          backgroundColor,
+          minHeight: '100%',
         }}
         columnWrapperStyle={numColumns > 1 ? { justifyContent: 'flex-start' } : undefined}
         showsVerticalScrollIndicator={false}

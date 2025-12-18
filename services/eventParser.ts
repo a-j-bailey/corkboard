@@ -1,7 +1,7 @@
 import { apple } from '@react-native-ai/apple';
 import { generateObject } from 'ai';
 import { z } from 'zod';
-import { Event, SocialMediaHandles } from '../contexts/EventContext';
+import { Event, EventDate, SocialMediaHandles } from '../contexts/EventContext';
 
 // Zod schema for event extraction (supports multiple events)
 const eventSchema = z.object({
@@ -116,12 +116,15 @@ ${text}`,
         }
       : undefined;
 
-    const parsedEvent = {
+    // Parse dates and price
+    const dates = parseDates(firstEvent.date, firstEvent.time);
+    const price = parsePriceToNumber(firstEvent.cost);
+
+    const parsedEvent: Partial<Event> = {
       title: firstEvent.title,
-      date: firstEvent.date,
-      time: firstEvent.time,
+      dates: dates,
+      price: price,
       address: firstEvent.address,
-      cost: firstEvent.cost,
       websiteUrl: firstEvent.websiteUrl,
       socialMediaHandles: socialMediaHandles,
       description: firstEvent.description,
@@ -154,12 +157,15 @@ function parseWithRules(text: string): Partial<Event> {
   const description = extractDescription(text, lines);
   const organizationName = extractOrganizationName(text, lines);
   
+  // Parse dates and price
+  const dates = parseDates(date, time);
+  const price = parsePriceToNumber(cost);
+  
   console.log('[EventParser] Rule-based extraction results:');
   console.log('  - Title:', title || '(not found)');
-  console.log('  - Date:', date || '(not found)');
-  console.log('  - Time:', time || '(not found)');
+  console.log('  - Dates:', dates.length > 0 ? JSON.stringify(dates) : '(not found)');
+  console.log('  - Price:', price !== null && price !== undefined ? price : '(not found)');
   console.log('  - Address:', address || '(not found)');
-  console.log('  - Cost:', cost || '(not found)');
   console.log('  - Website URL:', websiteUrl || '(not found)');
   console.log('  - Social Media:', socialMediaHandles ? JSON.stringify(socialMediaHandles) : '(not found)');
   console.log('  - Description:', description ? `${description.substring(0, 50)}...` : '(not found)');
@@ -167,10 +173,9 @@ function parseWithRules(text: string): Partial<Event> {
   
   return {
     title,
-    date,
-    time,
+    dates,
+    price,
     address,
-    cost,
     websiteUrl,
     socialMediaHandles,
     description,
@@ -445,5 +450,249 @@ function isAddressLike(text: string): boolean {
   const lowerText = text.toLowerCase();
   return addressKeywords.some(keyword => lowerText.includes(keyword)) ||
          /\b\d+\s+[A-Za-z\s]+(?:Street|St|Avenue|Ave|Road|Rd)\b/i.test(text);
+}
+
+/**
+ * Parses date and time strings into EventDate array format
+ * Handles various formats:
+ * - Single date: "9/11/2025" → [{start: "2025-09-11T00:00:00"}]
+ * - Date with time: "9/11/2025 @ 7pm" → [{start: "2025-09-11T19:00:00"}]
+ * - Date range: "September 11 - 14, 2025" → [{start: "2025-09-11T00:00:00"}, {start: "2025-09-12T00:00:00"}, ...]
+ * - Time range: "9/11/2025 @ 7am - 12pm" → [{start: "2025-09-11T07:00:00", end: "2025-09-11T12:00:00"}]
+ * - Multiple times: "9/11/2025 @ 12pm & 4pm" → [{start: "2025-09-11T12:00:00"}, {start: "2025-09-11T16:00:00"}]
+ */
+export function parseDates(dateStr?: string, timeStr?: string): EventDate[] {
+  if (!dateStr || dateStr.trim().length === 0) {
+    console.log('[EventParser] No date string provided');
+    return [];
+  }
+
+  const dates: EventDate[] = [];
+  const trimmedDateStr = dateStr.trim();
+  
+  console.log('[EventParser] Parsing date string:', trimmedDateStr, 'with time:', timeStr || '(none)');
+  
+  try {
+    // Handle ISO date range format: "2025-09-11 to 2025-09-14" or "2025-09-11 - 2025-09-14"
+    const isoRangePattern = /(\d{4}-\d{2}-\d{2})\s*(?:to|-)\s*(\d{4}-\d{2}-\d{2})/i;
+    const isoRangeMatch = trimmedDateStr.match(isoRangePattern);
+    
+    if (isoRangeMatch) {
+      console.log('[EventParser] Matched ISO date range pattern');
+      const startDate = new Date(isoRangeMatch[1] + 'T00:00:00');
+      const endDate = new Date(isoRangeMatch[2] + 'T00:00:00');
+      
+      if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
+        console.log('[EventParser] Valid date range:', isoRangeMatch[1], 'to', isoRangeMatch[2]);
+        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+          dates.push({ start: d.toISOString() });
+        }
+        console.log('[EventParser] Generated', dates.length, 'date entries');
+        return dates;
+      } else {
+        console.warn('[EventParser] Invalid dates in ISO range:', isoRangeMatch[1], isoRangeMatch[2]);
+      }
+    }
+    
+    // Parse date range patterns like "September 11 - 14, 2025" or "9/11 - 9/14/2025"
+    const dateRangePattern = /(\w+\s+\d{1,2}|\d{1,2}\/\d{1,2})\s*-\s*(\d{1,2}|\d{1,2}\/\d{1,2}),?\s*(\d{4})/i;
+    const rangeMatch = dateStr.match(dateRangePattern);
+    
+    if (rangeMatch) {
+      // Extract year
+      const year = parseInt(rangeMatch[3]);
+      let startMonth: number, startDay: number, endMonth: number, endDay: number;
+      
+      // Parse start date
+      const startPart = rangeMatch[1];
+      if (startPart.includes('/')) {
+        const [month, day] = startPart.split('/').map(Number);
+        startMonth = month;
+        startDay = day;
+      } else {
+        // Month name format
+        const monthNames = ['january', 'february', 'march', 'april', 'may', 'june', 
+                           'july', 'august', 'september', 'october', 'november', 'december'];
+        const monthName = startPart.split(/\s+/)[0].toLowerCase();
+        startMonth = monthNames.indexOf(monthName) + 1;
+        startDay = parseInt(startPart.match(/\d+/)?.[0] || '1');
+      }
+      
+      // Parse end date
+      const endPart = rangeMatch[2];
+      if (endPart.includes('/')) {
+        const [month, day] = endPart.split('/').map(Number);
+        endMonth = month;
+        endDay = day;
+      } else {
+        endMonth = startMonth; // Assume same month if just day number
+        endDay = parseInt(endPart);
+      }
+      
+      // Generate dates for each day in range
+      // Use UTC to avoid timezone issues for date-only events
+      const startDate = new Date(Date.UTC(year, startMonth - 1, startDay, 0, 0, 0));
+      const endDate = new Date(Date.UTC(year, endMonth - 1, endDay, 0, 0, 0));
+      
+      for (let d = new Date(startDate); d <= endDate; d.setUTCDate(d.getUTCDate() + 1)) {
+        dates.push({ start: d.toISOString() });
+      }
+      
+      return dates;
+    }
+    
+    // Parse single date
+    let baseDate: Date;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmedDateStr)) {
+      // ISO format (YYYY-MM-DD) - use UTC midnight for date-only events
+      console.log('[EventParser] Parsing ISO format date');
+      const [year, month, day] = trimmedDateStr.split('-').map(Number);
+      baseDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+    } else {
+      // Try parsing as-is - if it's a date string without time, parse components
+      console.log('[EventParser] Attempting to parse date string as-is');
+      const parsed = new Date(trimmedDateStr);
+      if (!isNaN(parsed.getTime())) {
+        // If the parsed date has no time component (or is at midnight), use UTC
+        // Otherwise preserve the time
+        if (parsed.getHours() === 0 && parsed.getMinutes() === 0 && parsed.getSeconds() === 0) {
+          // Date-only, use UTC
+          baseDate = new Date(Date.UTC(
+            parsed.getFullYear(),
+            parsed.getMonth(),
+            parsed.getDate(),
+            0, 0, 0
+          ));
+        } else {
+          baseDate = parsed;
+        }
+      } else {
+        baseDate = parsed;
+      }
+    }
+    
+    if (isNaN(baseDate.getTime())) {
+      console.warn('[EventParser] Failed to parse date string:', trimmedDateStr);
+      return [];
+    }
+    
+    console.log('[EventParser] Successfully parsed base date:', baseDate.toISOString());
+    
+    // Parse time string if provided
+    if (timeStr) {
+      // Check for time range like "7am - 12pm" or "7:00 AM - 12:00 PM"
+      const timeRangePattern = /(\d{1,2}(?::\d{2})?)\s*(AM|PM|am|pm)?\s*-\s*(\d{1,2}(?::\d{2})?)\s*(AM|PM|am|pm)?/i;
+      const timeRangeMatch = timeStr.match(timeRangePattern);
+      
+      if (timeRangeMatch) {
+        // Time range on same day
+        const startTime = parseTimeString(timeRangeMatch[1], timeRangeMatch[2] || '');
+        const endTime = parseTimeString(timeRangeMatch[3], timeRangeMatch[4] || '');
+        
+        const startDateTime = new Date(baseDate);
+        startDateTime.setHours(startTime.hours, startTime.minutes, 0, 0);
+        
+        const endDateTime = new Date(baseDate);
+        endDateTime.setHours(endTime.hours, endTime.minutes, 0, 0);
+        
+        dates.push({
+          start: startDateTime.toISOString(),
+          end: endDateTime.toISOString(),
+        });
+      } else {
+        // Check for multiple times like "12pm & 4pm"
+        const multipleTimesPattern = /(\d{1,2}(?::\d{2})?\s*(AM|PM|am|pm)?)\s*(?:&|and)\s*(\d{1,2}(?::\d{2})?\s*(AM|PM|am|pm)?)/i;
+        const multipleTimesMatch = timeStr.match(multipleTimesPattern);
+        
+        if (multipleTimesMatch) {
+          // Multiple times on same day
+          const time1 = parseTimeString(multipleTimesMatch[1], multipleTimesMatch[2] || '');
+          const time2 = parseTimeString(multipleTimesMatch[3], multipleTimesMatch[4] || '');
+          
+          const dateTime1 = new Date(baseDate);
+          dateTime1.setHours(time1.hours, time1.minutes, 0, 0);
+          
+          const dateTime2 = new Date(baseDate);
+          dateTime2.setHours(time2.hours, time2.minutes, 0, 0);
+          
+          dates.push({ start: dateTime1.toISOString() });
+          dates.push({ start: dateTime2.toISOString() });
+        } else {
+          // Single time
+          const timeMatch = timeStr.match(/(\d{1,2}(?::\d{2})?)\s*(AM|PM|am|pm)?/i);
+          if (timeMatch) {
+            const time = parseTimeString(timeMatch[1], timeMatch[2] || '');
+            const dateTime = new Date(baseDate);
+            dateTime.setHours(time.hours, time.minutes, 0, 0);
+            dates.push({ start: dateTime.toISOString() });
+          } else {
+            dates.push({ start: baseDate.toISOString() });
+          }
+        }
+      }
+    } else {
+      // No time, just date
+      dates.push({ start: baseDate.toISOString() });
+    }
+  } catch (error) {
+    console.error('[EventParser] Error parsing dates:', error);
+    // Fallback: try to create a single date entry
+    try {
+      const fallbackDate = new Date(dateStr);
+      if (!isNaN(fallbackDate.getTime())) {
+        dates.push({ start: fallbackDate.toISOString() });
+      }
+    } catch {
+      // Ignore
+    }
+  }
+  
+  return dates;
+}
+
+/**
+ * Parses a time string to hours and minutes
+ */
+function parseTimeString(timeStr: string, ampm: string): { hours: number; minutes: number } {
+  const parts = timeStr.split(':');
+  let hours = parseInt(parts[0]);
+  const minutes = parts[1] ? parseInt(parts[1]) : 0;
+  
+  // Handle AM/PM
+  if (ampm) {
+    const isPM = ampm.toUpperCase() === 'PM';
+    if (isPM && hours !== 12) {
+      hours += 12;
+    } else if (!isPM && hours === 12) {
+      hours = 0;
+    }
+  }
+  
+  return { hours, minutes };
+}
+
+/**
+ * Parses a price string to a number
+ * - "Free", "No charge", "Complimentary" → 0
+ * - "$45" or "45 dollars" → 45
+ * - Unknown/missing → null
+ */
+export function parsePriceToNumber(priceStr?: string): number | null {
+  if (!priceStr) return null;
+  
+  const lowerPrice = priceStr.toLowerCase().trim();
+  
+  // Check for free
+  if (lowerPrice === 'free' || lowerPrice.includes('no charge') || lowerPrice.includes('complimentary')) {
+    return 0;
+  }
+  
+  // Extract number from price string
+  const numberMatch = priceStr.match(/\$?\s*(\d+(?:\.\d{2})?)/);
+  if (numberMatch) {
+    return parseFloat(numberMatch[1]);
+  }
+  
+  return null;
 }
 

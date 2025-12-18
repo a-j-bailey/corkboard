@@ -17,8 +17,10 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Colors } from '../../constants/theme';
 import { Event, SocialMediaHandles, useEvents } from '../../contexts/EventContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import { formatEventDate, formatEventTime } from '../../utils/dateFormatter';
+import { formatEventDates, formatDateOnly, formatTime } from '../../utils/dateFormatter';
 import { XSymbol } from '../../components/XSymbol';
+import { parseDates, parsePriceToNumber } from '../../services/eventParser';
+import { geocodeLocation } from '../../services/geocodingService';
 
 export default function PreviewScreen() {
   const router = useRouter();
@@ -48,11 +50,70 @@ export default function PreviewScreen() {
   
   const posterImageUri = params.posterImageUri || undefined;
 
+  // Helper function to extract date and time strings from EventDate array or old format
+  const extractDateAndTime = (eventData: Partial<Event>): { date: string; time: string } => {
+    // Check if we have the new dates array format
+    if (eventData.dates && eventData.dates.length > 0) {
+      const firstDate = new Date(eventData.dates[0].start);
+      if (!isNaN(firstDate.getTime())) {
+        const dateStr = firstDate.toISOString().split('T')[0]; // YYYY-MM-DD
+        let timeStr = '';
+        
+        // Extract time if present
+        if (firstDate.getHours() !== 0 || firstDate.getMinutes() !== 0) {
+          const hours = firstDate.getHours();
+          const minutes = firstDate.getMinutes();
+          const ampm = hours >= 12 ? 'PM' : 'AM';
+          const displayHours = hours % 12 || 12;
+          timeStr = `${displayHours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+        }
+        
+        // If there's an end time, append it
+        if (eventData.dates[0].end) {
+          const endDate = new Date(eventData.dates[0].end);
+          if (!isNaN(endDate.getTime())) {
+            const endHours = endDate.getHours();
+            const endMinutes = endDate.getMinutes();
+            const endAmpm = endHours >= 12 ? 'PM' : 'AM';
+            const endDisplayHours = endHours % 12 || 12;
+            timeStr += ` - ${endDisplayHours}:${endMinutes.toString().padStart(2, '0')} ${endAmpm}`;
+          }
+        }
+        
+        return { date: dateStr, time: timeStr };
+      }
+    }
+    
+    // Fall back to old format
+    return {
+      date: (eventData as any).date || '',
+      time: (eventData as any).time || '',
+    };
+  };
+
+  // Helper function to extract price string from number or old format
+  const extractPriceString = (eventData: Partial<Event>): string => {
+    if (eventData.price !== null && eventData.price !== undefined) {
+      if (eventData.price === 0) {
+        return 'Free';
+      } else {
+        return `$${eventData.price}`;
+      }
+    }
+    return (eventData as any).cost || '';
+  };
+
+  const initialDateAndTime = extractDateAndTime(initialEventData);
+  const initialPrice = extractPriceString(initialEventData);
+
+  // Store the original dates array if it exists (for multiple dates display)
+  const [originalDates, setOriginalDates] = useState(initialEventData.dates || []);
+
   const [title, setTitle] = useState(initialEventData.title || '');
-  const [date, setDate] = useState(initialEventData.date || '');
-  const [time, setTime] = useState(initialEventData.time || '');
+  const [date, setDate] = useState(initialDateAndTime.date);
+  const [time, setTime] = useState(initialDateAndTime.time);
   const [address, setAddress] = useState(initialEventData.address || '');
-  const [cost, setCost] = useState(initialEventData.cost || '');
+  const [cost, setCost] = useState(initialPrice);
   const [websiteUrl, setWebsiteUrl] = useState(initialEventData.websiteUrl || '');
   const [description, setDescription] = useState(initialEventData.description || '');
   const [organizationName, setOrganizationName] = useState(initialEventData.organizationName || '');
@@ -62,11 +123,21 @@ export default function PreviewScreen() {
 
   // Update state when params change
   useEffect(() => {
+    const dateAndTime = extractDateAndTime(initialEventData);
+    const priceStr = extractPriceString(initialEventData);
+    
+    // Store original dates array if it exists
+    if (initialEventData.dates && initialEventData.dates.length > 0) {
+      setOriginalDates(initialEventData.dates);
+    } else {
+      setOriginalDates([]);
+    }
+    
     setTitle(initialEventData.title || '');
-    setDate(initialEventData.date || '');
-    setTime(initialEventData.time || '');
+    setDate(dateAndTime.date);
+    setTime(dateAndTime.time);
     setAddress(initialEventData.address || '');
-    setCost(initialEventData.cost || '');
+    setCost(priceStr);
     setWebsiteUrl(initialEventData.websiteUrl || '');
     setDescription(initialEventData.description || '');
     setOrganizationName(initialEventData.organizationName || '');
@@ -89,25 +160,69 @@ export default function PreviewScreen() {
     setIsSaving(true);
 
     try {
+      // Use original dates array if available, otherwise parse from date/time strings
+      let dates: Array<{start: string, end?: string}>;
+      if (originalDates.length > 0) {
+        // Use the original dates array from the extracted data
+        dates = originalDates;
+        console.log('[PreviewScreen] Using original dates array:', dates.length, 'dates');
+      } else {
+        // Parse dates from the date/time input fields
+        dates = parseDates(date.trim(), time.trim() || undefined);
+        if (dates.length === 0) {
+          Alert.alert('Error', 'Could not parse event date. Please check the format.');
+          setIsSaving(false);
+          return;
+        }
+        console.log('[PreviewScreen] Parsed dates from input:', dates.length, 'dates');
+      }
+
+      // Parse price to number
+      const price = parsePriceToNumber(cost.trim() || undefined);
+
+      // Geocode location if provided
+      let locationName: string | undefined;
+      let latitude: number | undefined;
+      let longitude: number | undefined;
+      
+      if (address.trim()) {
+        try {
+          const geocoded = await geocodeLocation(address.trim());
+          if (geocoded) {
+            locationName = geocoded.name;
+            latitude = geocoded.latitude;
+            longitude = geocoded.longitude;
+          }
+        } catch (geocodeError) {
+          console.warn('[PreviewScreen] Geocoding failed, saving without coordinates:', geocodeError);
+          // Continue without geocoding
+        }
+      }
+
       const socialMediaHandles: SocialMediaHandles = {};
       if (x.trim()) socialMediaHandles.x = x.trim();
       if (instagram.trim()) socialMediaHandles.instagram = instagram.trim();
       if (facebook.trim()) socialMediaHandles.facebook = facebook.trim();
 
-      const eventToSave: Omit<Event, 'id' | 'createdAt'> = {
+      const eventToSave: Omit<Event, 'id' | 'userId' | 'createdAt' | 'updatedAt'> = {
         title: title.trim(),
-        date: date.trim(),
-        time: time.trim() || undefined,
+        dates: dates,
+        price: price,
+        locationName: locationName,
         address: address.trim() || undefined,
-        cost: cost.trim() || undefined,
+        latitude: latitude,
+        longitude: longitude,
         websiteUrl: websiteUrl.trim() || undefined,
         description: description.trim() || undefined,
         organizationName: organizationName.trim() || undefined,
         socialMediaHandles: Object.keys(socialMediaHandles).length > 0 ? socialMediaHandles : undefined,
-        posterImage: posterImageUri || initialEventData.posterImage || '',
+        posterImage: '', // Will be set after image upload
       };
 
-      addEvent(eventToSave);
+      console.log('[PreviewScreen] Saving event with dates:', JSON.stringify(dates, null, 2));
+      console.log('[PreviewScreen] Number of dates:', dates.length);
+
+      await addEvent(eventToSave, posterImageUri || initialEventData.posterImage);
       Alert.alert('Success', 'Event saved successfully!', [
         {
           text: 'OK',
@@ -118,7 +233,7 @@ export default function PreviewScreen() {
       ]);
     } catch (error) {
       console.error('[PreviewScreen] Error saving event:', error);
-      Alert.alert('Error', 'Failed to save event. Please try again.');
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to save event. Please try again.');
     } finally {
       setIsSaving(false);
     }
@@ -236,25 +351,31 @@ export default function PreviewScreen() {
             </View>
           )}
 
-          {/* Date and Time - Centered */}
-          {(date || time) && (
-            <View style={{
-              alignItems: 'center',
-              marginBottom: 12,
-            }}>
-              <Text style={{
-                color: textColor,
-                fontSize: 18,
-                fontWeight: '500',
-                textAlign: 'center',
-              }}>
-                {[
-                  date ? formatEventDate(date) : '',
-                  time ? formatEventTime(time) : ''
-                ].filter(Boolean).join(', ')}
-              </Text>
-            </View>
-          )}
+          {/* Single Date - Show under title */}
+          {(() => {
+            // Use original dates array if available, otherwise parse from date/time strings
+            const datesToDisplay = originalDates.length > 0 ? originalDates : parseDates(date || '', time || undefined);
+            const hasMultipleDates = datesToDisplay.length > 1;
+            
+            if (!hasMultipleDates && datesToDisplay.length > 0) {
+              return (
+                <View style={{
+                  alignItems: 'center',
+                  marginBottom: 12,
+                }}>
+                  <Text style={{
+                    color: textColor,
+                    fontSize: 18,
+                    fontWeight: '500',
+                    textAlign: 'center',
+                  }}>
+                    {formatEventDates(datesToDisplay)}
+                  </Text>
+                </View>
+              );
+            }
+            return null;
+          })()}
 
           {/* Location - Centered */}
           {address && (
@@ -280,27 +401,104 @@ export default function PreviewScreen() {
           )}
 
           {/* Cost - Centered */}
-          {cost && (
-            <View style={{
-              alignItems: 'center',
-              marginBottom: 16,
-            }}>
-              <TextInput
-                style={{
-                  color: textColor,
-                  fontSize: 18,
-                  fontWeight: '600',
-                  textAlign: 'center',
-                }}
-                value={cost}
-                onChangeText={setCost}
-                placeholder="Cost"
-                placeholderTextColor={placeholderColor}
-                editable={!isSaving}
-              />
-            </View>
-          )}
+            {cost && (
+              <View style={{
+                alignItems: 'center',
+                marginBottom: 16,
+              }}>
+                <TextInput
+                  style={{
+                    color: textColor,
+                    fontSize: 18,
+                    fontWeight: '600',
+                    textAlign: 'center',
+                  }}
+                  value={cost}
+                  onChangeText={setCost}
+                  placeholder="Cost"
+                  placeholderTextColor={placeholderColor}
+                  editable={!isSaving}
+                />
+                {cost && (
+                  <Text style={{
+                    color: textColor,
+                    fontSize: 14,
+                    opacity: 0.7,
+                    marginTop: 4,
+                  }}>
+                    {(() => {
+                      const price = parsePriceToNumber(cost);
+                      if (price === 0) return 'Free';
+                      if (price === null) return 'Price TBD';
+                      return `$${price}`;
+                    })()}
+                  </Text>
+                )}
+              </View>
+            )}
         </View>
+
+        {/* Multiple Dates Card - Show above details if more than one date */}
+        {(() => {
+          // Use original dates array if available, otherwise parse from date/time strings
+          const datesToDisplay = originalDates.length > 0 ? originalDates : parseDates(date || '', time || undefined);
+          const hasMultipleDates = datesToDisplay.length > 1;
+          
+          if (hasMultipleDates) {
+            return (
+              <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
+                <GlassView
+                  style={{
+                    borderRadius: 20,
+                    padding: 20,
+                    overflow: 'hidden',
+                  }}
+                  glassEffectStyle="regular"
+                >
+                  <Text style={{
+                    color: textColor,
+                    fontSize: 14,
+                    fontWeight: '600',
+                    marginBottom: 12,
+                    opacity: 0.7,
+                  }}>
+                    Event Dates
+                  </Text>
+                  <View style={{ gap: 8 }}>
+                    {datesToDisplay.map((dateItem, index) => {
+                      const dateObj = new Date(dateItem.start);
+                      const isDateOnly = dateObj.getUTCHours() === 0 && dateObj.getUTCMinutes() === 0;
+                      
+                      return (
+                        <View key={index} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <Text style={{
+                            color: textColor,
+                            fontSize: 16,
+                            fontWeight: '500',
+                            flex: 1,
+                          }}>
+                            {formatDateOnly(dateObj)}
+                          </Text>
+                          {!isDateOnly && (
+                            <Text style={{
+                              color: textColor,
+                              fontSize: 14,
+                              opacity: 0.7,
+                            }}>
+                              {formatTime(dateObj)}
+                              {dateItem.end && ` - ${formatTime(new Date(dateItem.end))}`}
+                            </Text>
+                          )}
+                        </View>
+                      );
+                    })}
+                  </View>
+                </GlassView>
+              </View>
+            );
+          }
+          return null;
+        })()}
 
         {/* Content cards */}
         <View style={{ paddingHorizontal: 20, paddingTop: 20, gap: 16 }}>

@@ -2,7 +2,8 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { File } from 'expo-file-system';
 import { z } from 'zod';
-import { Event } from '../contexts/EventContext';
+import { Event, EventDate } from '../contexts/EventContext';
+import { parseDates, parsePriceToNumber } from './eventParser';
 
 // Zod schema for event extraction
 const eventSchema = z.object({
@@ -325,12 +326,37 @@ If there are multiple events on the poster, extract all of them. Return the info
           }
         : undefined;
 
+      // Parse dates and price
+      // Handle both string dates (like "2025-09-11 to 2025-09-14") and structured formats
+      let dates: EventDate[] = [];
+      if (firstEvent.date) {
+        // Try parsing the date string - it might be a range like "2025-09-11 to 2025-09-14"
+        dates = parseDates(firstEvent.date, firstEvent.time);
+        
+        // If parsing failed and we got an empty array, log for debugging
+        if (dates.length === 0) {
+          console.warn('[VisionExtraction] Failed to parse date string:', firstEvent.date);
+          console.warn('[VisionExtraction] Attempting fallback parsing...');
+          
+          // Try to extract just the start date if it's a range
+          const isoDateMatch = firstEvent.date.match(/(\d{4}-\d{2}-\d{2})/);
+          if (isoDateMatch) {
+            const fallbackDate = new Date(isoDateMatch[1] + 'T00:00:00');
+            if (!isNaN(fallbackDate.getTime())) {
+              dates = [{ start: fallbackDate.toISOString() }];
+              console.log('[VisionExtraction] Fallback parsing succeeded');
+            }
+          }
+        }
+      }
+      
+      const price = parsePriceToNumber(firstEvent.cost);
+
       const parsedEvent: Partial<Event> = {
         title: firstEvent.title,
-        date: firstEvent.date,
-        time: firstEvent.time,
+        dates: dates,
+        price: price,
         address: firstEvent.address,
-        cost: firstEvent.cost,
         websiteUrl: firstEvent.websiteUrl,
         socialMediaHandles: socialMediaHandles,
         description: firstEvent.description,

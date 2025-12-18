@@ -2,6 +2,7 @@ import { BottomSheet, Host } from '@expo/ui/swift-ui';
 import { Ionicons } from '@expo/vector-icons';
 import { GlassView } from 'expo-glass-effect';
 import { Image } from 'expo-image';
+import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useState } from 'react';
 import {
@@ -15,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../constants/theme';
 import { Event } from '../contexts/EventContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { formatEventDate, formatEventTime } from '../utils/dateFormatter';
+import { formatDateOnly, formatEventDates, formatTime } from '../utils/dateFormatter';
 import { XSymbol } from './XSymbol';
 
 interface EventDetailModalProps {
@@ -61,6 +62,38 @@ export default function EventDetailModal({
     }
   };
 
+  const handleOpenLocation = async () => {
+    if (!event) return;
+
+    try {
+      let mapsUrl: string;
+      
+      if (event.latitude && event.longitude) {
+        // Use coordinates if available
+        mapsUrl = `maps://maps.apple.com/?q=${event.latitude},${event.longitude}`;
+      } else if (event.address) {
+        // Use address if coordinates not available
+        const encodedAddress = encodeURIComponent(event.address);
+        mapsUrl = `maps://maps.apple.com/?q=${encodedAddress}`;
+      } else {
+        return;
+      }
+
+      const canOpen = await Linking.canOpenURL(mapsUrl);
+      if (canOpen) {
+        await Linking.openURL(mapsUrl);
+      } else {
+        // Fallback to web maps
+        const webMapsUrl = event.latitude && event.longitude
+          ? `https://maps.apple.com/?q=${event.latitude},${event.longitude}`
+          : `https://maps.apple.com/?q=${encodeURIComponent(event.address || '')}`;
+        await WebBrowser.openBrowserAsync(webMapsUrl);
+      }
+    } catch (error) {
+      console.error('Error opening location in maps:', error);
+    }
+  };
+
   const getXURL = (handle: string): string => {
     if (handle.startsWith('http://') || handle.startsWith('https://')) {
       return handle;
@@ -93,6 +126,8 @@ export default function EventDetailModal({
   if (!event) {
     return null;
   }
+
+  console.log('event', event);
 
   const renderContent = () => (
     <View
@@ -145,8 +180,8 @@ export default function EventDetailModal({
               </Text>
             </View>
 
-            {/* Date and Time - Centered */}
-            {(event.date || event.time) && (
+            {/* Single Date - Show under title */}
+            {event.dates && event.dates.length === 1 && (
               <View style={{
                 alignItems: 'center',
                 marginBottom: 12,
@@ -157,33 +192,47 @@ export default function EventDetailModal({
                   fontWeight: '500',
                   textAlign: 'center',
                 }}>
-                  {[
-                    event.date ? formatEventDate(event.date) : '',
-                    event.time ? formatEventTime(event.time) : ''
-                  ].filter(Boolean).join(', ')}
+                  {formatEventDates(event.dates)}
                 </Text>
               </View>
             )}
 
-            {/* Location - Centered */}
-            {event.address && (
-              <View style={{
-                alignItems: 'center',
-                marginBottom: 12,
-              }}>
+            {/* Location - Centered, Clickable */}
+            {(event.address || event.locationName) && (
+              <TouchableOpacity
+                onPress={handleOpenLocation}
+                activeOpacity={0.7}
+                style={{
+                  alignItems: 'center',
+                  marginBottom: 12,
+                }}
+              >
                 <Text style={{
-                  color: textColor,
+                  color: '#3B82F6',
                   fontSize: 18,
                   fontWeight: '400',
                   textAlign: 'center',
+                  textDecorationLine: 'underline',
                 }}>
-                  {event.address}
+                  {event.locationName || event.address}
                 </Text>
-              </View>
+                {event.address && event.locationName && event.address !== event.locationName && (
+                  <Text style={{
+                    color: textColor,
+                    fontSize: 14,
+                    fontWeight: '300',
+                    textAlign: 'center',
+                    marginTop: 4,
+                    opacity: 0.7,
+                  }}>
+                    {event.address}
+                  </Text>
+                )}
+              </TouchableOpacity>
             )}
 
-            {/* Cost - Centered */}
-            {event.cost && (
+            {/* Price - Centered */}
+            {event.price !== null && event.price !== undefined && (
               <View style={{
                 alignItems: 'center',
                 marginBottom: 16,
@@ -194,11 +243,80 @@ export default function EventDetailModal({
                   fontWeight: '600',
                   textAlign: 'center',
                 }}>
-                  {event.cost}
+                  {event.price === 0 ? 'Free' : `$${event.price}`}
+                </Text>
+              </View>
+            )}
+            {event.price === null && (
+              <View style={{
+                alignItems: 'center',
+                marginBottom: 16,
+              }}>
+                <Text style={{
+                  color: textColor,
+                  fontSize: 18,
+                  fontWeight: '400',
+                  textAlign: 'center',
+                  opacity: 0.7,
+                }}>
+                  Price TBD
                 </Text>
               </View>
             )}
           </View>
+
+          {/* Multiple Dates Card - Show above details if more than one date */}
+          {event.dates && event.dates.length > 1 && (
+            <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
+              <GlassView
+                style={{
+                  borderRadius: 20,
+                  padding: 20,
+                  overflow: 'hidden',
+                }}
+                glassEffectStyle="regular"
+              >
+                <Text style={{
+                  color: textColor,
+                  fontSize: 14,
+                  fontWeight: '600',
+                  marginBottom: 12,
+                  opacity: 0.7,
+                }}>
+                  Event Dates
+                </Text>
+                <View style={{ gap: 8 }}>
+                  {event.dates.map((date, index) => {
+                    const dateObj = new Date(date.start);
+                    const isDateOnly = dateObj.getUTCHours() === 0 && dateObj.getUTCMinutes() === 0;
+                    
+                    return (
+                      <View key={index} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text style={{
+                          color: textColor,
+                          fontSize: 16,
+                          fontWeight: '500',
+                          flex: 1,
+                        }}>
+                          {formatDateOnly(dateObj)}
+                        </Text>
+                        {!isDateOnly && (
+                          <Text style={{
+                            color: textColor,
+                            fontSize: 14,
+                            opacity: 0.7,
+                          }}>
+                            {formatTime(dateObj)}
+                            {date.end && ` - ${formatTime(new Date(date.end))}`}
+                          </Text>
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
+              </GlassView>
+            </View>
+          )}
 
           {/* Content cards */}
           <View style={{ paddingHorizontal: 20, paddingTop: 20, gap: 16 }}>
