@@ -1,5 +1,6 @@
 import { Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ThemedText } from '../components/themed-text';
 import { Colors } from '../constants/theme';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -42,14 +43,17 @@ export default function ProfileScreen() {
           }}
           activeOpacity={0.8}
         >
-          <Text style={{
-            color: '#FFFFFF',
-            textAlign: 'center',
-            fontWeight: '600',
-            fontSize: 18,
-          }}>
+          <ThemedText 
+            lightColor="#FFFFFF"
+            darkColor="#FFFFFF"
+            style={{
+              textAlign: 'center',
+              fontWeight: '600',
+              fontSize: 18,
+            }}
+          >
             Create Account
-          </Text>
+          </ThemedText>
         </TouchableOpacity>
         
         <TouchableOpacity 
@@ -63,13 +67,16 @@ export default function ProfileScreen() {
           }}
           activeOpacity={0.8}
         >
-          <Text style={{
-            color: colorScheme === 'dark' ? '#9BA1A6' : '#687076',
-            textAlign: 'center',
-            fontWeight: '500',
-          }}>
+          <ThemedText 
+            lightColor="#687076"
+            darkColor="#9BA1A6"
+            style={{
+              textAlign: 'center',
+              fontWeight: '500',
+            }}
+          >
             Sign In
-          </Text>
+          </ThemedText>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

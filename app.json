@@ -63,7 +63,8 @@
         {
           "photosPermission": "Allow $(PRODUCT_NAME) to access your photos to select event poster images."
         }
-      ]
+      ],
+      "react-native-document-scanner-plugin"
     ],
     "experiments": {
       "typedRoutes": true,

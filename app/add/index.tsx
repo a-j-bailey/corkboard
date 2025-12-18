@@ -1,21 +1,20 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useIsFocused } from '@react-navigation/native';
-import { CameraType, CameraView, useCameraPermissions } from 'expo-camera';
 import Constants from 'expo-constants';
 import { GlassView } from 'expo-glass-effect';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Image,
-  StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import DocumentScanner from 'react-native-document-scanner-plugin';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ThemedText } from '../../components/themed-text';
 import { Colors } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { extractEventFromImage } from '../../services/visionExtraction';
@@ -23,53 +22,11 @@ import { extractEventFromImage } from '../../services/visionExtraction';
 export default function AddScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const isFocused = useIsFocused();
   const { colorScheme } = useTheme();
   const backgroundColor = Colors[colorScheme].background;
   const textColor = Colors[colorScheme].text;
-  const [facing, setFacing] = useState<CameraType>('back');
-  const [permission, requestPermission] = useCameraPermissions();
-  const cameraRef = useRef<CameraView>(null);
   const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [zoomLevel, setZoomLevel] = useState<1 | 2>(1); // 1x or 2x zoom
-
-  if (!permission) {
-    // Camera permissions are still loading
-    return <View style={{ flex: 1, backgroundColor }} />;
-  }
-
-  if (!permission.granted) {
-    // Camera permissions are not granted yet
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor }}>
-        <Text style={{ fontSize: 18, textAlign: 'center', marginBottom: 16, color: textColor }}>
-          We need your permission to use the camera
-        </Text>
-        <TouchableOpacity
-          style={{
-            backgroundColor: '#3B82F6',
-            paddingHorizontal: 32,
-            paddingVertical: 16,
-            borderRadius: 8,
-          }}
-          onPress={requestPermission}
-        >
-          <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>
-            Grant Permission
-          </Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  const toggleZoom = () => {
-    setZoomLevel(current => (current === 1 ? 2 : 1));
-  };
-
-  // Convert zoom level to zoom value (0-1 range)
-  // 1x = 0, 2x = 0.33 (typical value that triggers 2x on most devices)
-  const zoomValue = zoomLevel === 1 ? 0 : 0.33;
 
   const processImage = async (imageUri: string) => {
     setIsProcessing(true);
@@ -159,27 +116,55 @@ export default function AddScreen() {
     }
   };
 
-  const takePicture = async () => {
-    if (!cameraRef.current) {
-      console.warn('[AddScreen] Camera ref not available');
-      return;
-    }
-
+  const scanDocument = async () => {
     try {
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.8,
-        base64: false,
+      setIsProcessing(true);
+      
+      // Launch document scanner - limit to single page
+      // Note: maxNumDocuments only works on Android. On iOS, users can scan multiple pages
+      // but we will only use the first one.
+      const response = await DocumentScanner.scanDocument({
+        maxNumDocuments: 1, // Android only: limits UI to one page (requires app rebuild)
       });
 
-      if (photo?.uri) {
-        setCapturedImageUri(photo.uri);
-        await processImage(photo.uri);
+      // Check if user cancelled
+      if (response.status === 'cancel' || !response.scannedImages || response.scannedImages.length === 0) {
+        setIsProcessing(false);
+        return;
+      }
+
+      // Enforce single page: only use the first scanned image
+      // On Android, maxNumDocuments: 1 should prevent multiple scans in the UI
+      // On iOS, the scanner UI allows multiple scans, but we only use the first result
+      const scannedImageUri = response.scannedImages[0];
+      
+      // Warn user if they scanned multiple pages (iOS only, or if Android limit didn't work)
+      if (response.scannedImages.length > 1) {
+        Alert.alert(
+          'Multiple Pages Detected',
+          'Please scan only one page at a time. Using the first page only.',
+          [{ text: 'OK' }]
+        );
+      }
+      
+      if (scannedImageUri) {
+        setCapturedImageUri(scannedImageUri);
+        await processImage(scannedImageUri);
       } else {
-        console.warn('[AddScreen] Picture captured but no URI returned');
+        setIsProcessing(false);
       }
     } catch (error) {
-      console.error('[AddScreen] Error taking picture:', error);
-      Alert.alert('Error', 'Failed to take picture. Please try again.');
+      console.error('[AddScreen] Error scanning document:', error);
+      setIsProcessing(false);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      
+      // Check if user cancelled
+      if (errorMessage.includes('cancel') || errorMessage.includes('Cancel') || errorMessage.includes('cancelled')) {
+        // User cancelled, don't show error
+        return;
+      }
+      
+      Alert.alert('Error', 'Failed to scan document. Please try again.');
     }
   };
 
@@ -229,9 +214,9 @@ export default function AddScreen() {
           {isProcessing && (
             <View style={{ alignItems: 'center' }}>
               <ActivityIndicator size="large" color="#3B82F6" />
-              <Text style={{ color: colorScheme === 'dark' ? '#9BA1A6' : '#666', marginTop: 16 }}>
+              <ThemedText style={{ marginTop: 16 }}>
                 Extracting event information...
-              </Text>
+              </ThemedText>
             </View>
           )}
           {!isProcessing && (
@@ -247,192 +232,109 @@ export default function AddScreen() {
               }}
             >
               <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>
-                Take Another
+                Scan Another
               </Text>
             </TouchableOpacity>
           )}
         </View>
       ) : (
-        // Full screen camera view - only render when screen is focused
-        <View style={{ flex: 1 }}>
-          {isFocused && (
-            <CameraView
-              ref={cameraRef}
-              style={StyleSheet.absoluteFill}
-              facing={facing}
-              zoom={zoomValue}
-            />
-          )}
-
-          {/* Glass toolbar - positioned above nav bar */}
-          <View
-            style={{
-              position: 'absolute',
-              bottom: insets.bottom * 3,
-              left: 20,
-              right: 20,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 12,
-            }}
-          >
-            {/* Photo Library Button */}
-            <TouchableOpacity
-              onPress={pickImage}
-              disabled={isProcessing}
-              activeOpacity={0.7}
-            >
-              <GlassView
-                style={{
-                  width: 56,
-                  height: 56,
-                  borderRadius: 28,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  overflow: 'hidden',
-                }}
-                glassEffectStyle="regular"
-                isInteractive
-              >
-                {/* Semi-transparent dark overlay for consistent contrast */}
-                <View
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-                    borderRadius: 28,
-                  }}
-                />
-                <Ionicons
-                  name="images-outline"
-                  size={24}
-                  color="#FFFFFF"
-                  style={{
-                    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-                    textShadowOffset: { width: 0, height: 1 },
-                    textShadowRadius: 2,
-                  }}
-                />
-              </GlassView>
-            </TouchableOpacity>
-
-            {/* Wide Capture Button */}
-            <TouchableOpacity
-              onPress={takePicture}
-              disabled={isProcessing}
-              activeOpacity={0.7}
-              style={{ flex: 1, maxWidth: 200 }}
-            >
-              <GlassView
-                style={{
-                  height: 56,
-                  borderRadius: 28,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  paddingHorizontal: 24,
-                  overflow: 'hidden',
-                }}
-                glassEffectStyle="regular"
-                isInteractive
-              >
-                {/* Semi-transparent dark overlay for consistent contrast */}
-                <View
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-                    borderRadius: 28,
-                  }}
-                />
-                <Text
-                  style={{
-                    color: '#FFFFFF',
-                    fontSize: 16,
-                    fontWeight: '600',
-                    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-                    textShadowOffset: { width: 0, height: 1 },
-                    textShadowRadius: 2,
-                  }}
-                >
-                  Capture
-                </Text>
-              </GlassView>
-            </TouchableOpacity>
-
-            {/* Zoom Toggle Button */}
-            <TouchableOpacity
-              onPress={toggleZoom}
-              disabled={isProcessing}
-              activeOpacity={0.7}
-            >
-              <GlassView
-                style={{
-                  width: 56,
-                  height: 56,
-                  borderRadius: 28,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  overflow: 'hidden',
-                }}
-                glassEffectStyle="regular"
-                isInteractive
-              >
-                {/* Semi-transparent dark overlay for consistent contrast */}
-                <View
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-                    borderRadius: 28,
-                  }}
-                />
-                <Text
-                  style={{
-                    color: '#FFFFFF',
-                    fontSize: 14,
-                    fontWeight: '600',
-                    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-                    textShadowOffset: { width: 0, height: 1 },
-                    textShadowRadius: 2,
-                  }}
-                >
-                  {zoomLevel}x
-                </Text>
-              </GlassView>
-            </TouchableOpacity>
-          </View>
-
-          {/* Processing overlay */}
+        // Main screen with scan and library buttons
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor }}>
           {isProcessing && (
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                {
-                  backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                }
-              ]}
-            >
-              <ActivityIndicator size="large" color="#FFFFFF" />
-              <Text style={{ color: '#FFFFFF', marginTop: 16, fontSize: 16 }}>
-                Processing image...
-              </Text>
+            <View style={{ alignItems: 'center', marginBottom: 32 }}>
+              <ActivityIndicator size="large" color="#3B82F6" />
+              <ThemedText style={{ marginTop: 16, fontSize: 16 }}>
+                Scanning document...
+              </ThemedText>
             </View>
+          )}
+          
+          {!isProcessing && (
+            <>
+              <ThemedText type="defaultSemiBold" style={{ fontSize: 24, marginBottom: 8, textAlign: 'center' }}>
+                Scan Event Poster
+              </ThemedText>
+              <ThemedText style={{ fontSize: 16, marginBottom: 48, textAlign: 'center' }}>
+                Position the poster within the frame and the document scanner will automatically crop it
+              </ThemedText>
+
+              {/* Scan Document Button */}
+              <TouchableOpacity
+                onPress={scanDocument}
+                disabled={isProcessing}
+                activeOpacity={0.7}
+                style={{ width: '100%', marginBottom: 16 }}
+              >
+                <GlassView
+                  style={{
+                    height: 64,
+                    borderRadius: 32,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    paddingHorizontal: 32,
+                    overflow: 'hidden',
+                  }}
+                  glassEffectStyle="regular"
+                  isInteractive
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <Ionicons
+                      name="camera-outline"
+                      size={28}
+                      color={textColor}
+                    />
+                    <ThemedText
+                      style={{
+                        fontSize: 18,
+                        fontWeight: '600',
+                      }}
+                    >
+                      Scan Poster
+                    </ThemedText>
+                  </View>
+                </GlassView>
+              </TouchableOpacity>
+
+              {/* Photo Library Button */}
+              {/* <TouchableOpacity
+                onPress={pickImage}
+                disabled={isProcessing}
+                activeOpacity={0.7}
+                style={{ width: '100%' }}
+              >
+                <GlassView
+                  style={{
+                    height: 64,
+                    borderRadius: 32,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    paddingHorizontal: 32,
+                    overflow: 'hidden',
+                  }}
+                  glassEffectStyle="regular"
+                  isInteractive
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <Ionicons
+                      name="images-outline"
+                      size={28}
+                      color={textColor}
+                    />
+                    <ThemedText
+                      style={{
+                        fontSize: 18,
+                        fontWeight: '600',
+                      }}
+                    >
+                      Choose from Library
+                    </ThemedText>
+                  </View>
+                </GlassView>
+              </TouchableOpacity> */}
+            </>
           )}
         </View>
       )}
-
     </View>
   );
 }
