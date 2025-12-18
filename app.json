@@ -64,6 +64,7 @@
           "photosPermission": "Allow $(PRODUCT_NAME) to access your photos to select event poster images."
         }
       ],
+      "expo-apple-authentication",
       "react-native-document-scanner-plugin"
     ],
     "experiments": {
@@ -74,7 +75,9 @@
       "router": {},
       "eas": {
         "projectId": "cab5b354-1255-4e8b-a233-8bd16cc6eea6"
-      }
+      },
+      "supabaseUrl": "https://bqsogesiidtmzdzwmlbl.supabase.co",
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxc29nZXNpaWR0bXpkendtbGJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYwMTc4ODksImV4cCI6MjA4MTU5Mzg4OX0.ErjFhaOKGSWFrKPV7nkOjJTdJwUbx-ZTaFzxXn7a9BE"
     },
     "owner": "magicmirrorcreative"
   }

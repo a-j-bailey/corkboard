@@ -6,9 +6,11 @@ import { Colors } from '@/constants/theme';
 import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
 import { EventProvider } from '../contexts/EventContext';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
+import { UserProvider, useUser } from '../contexts/UserContext';
 
 function RootLayoutContent() {
   const { colorScheme } = useTheme();
+  const { user } = useUser();
   
   return (
     <>
@@ -21,10 +23,12 @@ function RootLayoutContent() {
           <Icon sf="person.fill" />
           <Label>Profile</Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="add" role="search">
-          <Icon sf="pin.fill" />
-          <Label>Add</Label>
-        </NativeTabs.Trigger>
+        {user && (
+          <NativeTabs.Trigger name="add" role="search">
+            <Icon sf="pin.fill" />
+            <Label>Add</Label>
+          </NativeTabs.Trigger>
+        )}
         {/* <NativeTabs.Trigger name="preview">
           <Icon sf="eye.fill" />
           <Label>Preview</Label>
@@ -38,9 +42,11 @@ function RootLayoutContent() {
 export default function RootLayout() {
   return (
     <ThemeProvider>
-      <EventProvider>
-        <RootLayoutContent />
-      </EventProvider>
+      <UserProvider>
+        <EventProvider>
+          <RootLayoutContent />
+        </EventProvider>
+      </UserProvider>
     </ThemeProvider>
   );
 }
