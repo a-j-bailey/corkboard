@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { useEffect, useState } from 'react';
-import { FlatList, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { FlatList, Platform, RefreshControl, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import EventDetailModal from '../components/EventDetailModal';
 import { Colors } from '../constants/theme';
@@ -11,10 +11,11 @@ export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const { colorScheme } = useTheme();
   const insets = useSafeAreaInsets();
-  const { events } = useEvents();
+  const { events, refreshEvents, loading } = useEvents();
   const [rotations, setRotations] = useState<number[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   
   // Calculate number of columns (2 or 3 columns)
   const gap = 32;
@@ -44,6 +45,17 @@ export default function HomeScreen() {
   const handleCloseModal = () => {
     setIsModalVisible(false);
     setSelectedEvent(null);
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refreshEvents();
+    } catch (error) {
+      console.error('[HomeScreen] Error refreshing events:', error);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const renderItem = ({ item, index }: { item: Event; index: number }) => {
@@ -87,13 +99,20 @@ export default function HomeScreen() {
         style={{ backgroundColor }}
         contentContainerStyle={{ 
           padding, 
-          paddingTop: padding + insets.top,
           paddingBottom: padding + insets.bottom,
-          backgroundColor,
           minHeight: '100%',
         }}
+        ListHeaderComponent={<View style={{ height: padding + insets.top }} />}
         columnWrapperStyle={numColumns > 1 ? { justifyContent: 'flex-start' } : undefined}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={Colors[colorScheme].tint}
+            progressViewOffset={Platform.OS === 'ios' ? insets.top : 0}
+          />
+        }
       />
       <EventDetailModal
         visible={isModalVisible}
