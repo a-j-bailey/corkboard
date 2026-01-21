@@ -1,10 +1,8 @@
-import { BottomSheet, Host } from '@expo/ui/swift-ui';
 import { Ionicons } from '@expo/vector-icons';
 import { GlassView } from 'expo-glass-effect';
 import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
-import { useEffect, useState } from 'react';
 import {
   ScrollView,
   Text,
@@ -20,34 +18,19 @@ import { formatDateOnly, formatEventDates, formatTime } from '../utils/dateForma
 import { XSymbol } from './XSymbol';
 
 interface EventDetailModalProps {
-  visible: boolean;
-  onClose: () => void;
-  event: Event | null;
+  event: Event | null | undefined;
+  onClose?: () => void;
 }
 
 export default function EventDetailModal({
-  visible,
-  onClose,
   event,
+  onClose,
 }: EventDetailModalProps) {
-  const { width, height } = useWindowDimensions();
+  const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { colorScheme } = useTheme();
   const textColor = Colors[colorScheme].text;
   const imageBgColor = colorScheme === 'dark' ? '#1F1F1F' : '#E5E7EB';
-  const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
-
-  // Sync bottom sheet with visible prop
-  useEffect(() => {
-    setIsBottomSheetOpen(visible);
-  }, [visible]);
-
-  const handleBottomSheetClose = (isOpen: boolean) => {
-    setIsBottomSheetOpen(isOpen);
-    if (!isOpen) {
-      onClose();
-    }
-  };
 
   const handleOpenURL = async (url: string) => {
     try {
@@ -127,20 +110,55 @@ export default function EventDetailModal({
     return null;
   }
 
-  console.log('event', event);
-
-  const renderContent = () => (
+  return (
     <View
       style={{
         height: '100%',
       }}
-    //   glassEffectStyle="regular"
     >
-        <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={{ paddingBottom: insets.bottom + 90 }}
-          showsVerticalScrollIndicator={false}
-        >
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 90 }}
+        showsVerticalScrollIndicator={false}
+      >
+          {/* Toolbar */}
+          <View style={{
+            flexDirection: 'row',
+            justifyContent: 'flex-end',
+            alignItems: 'center',
+            paddingHorizontal: 20,
+            paddingTop: insets.top + 8,
+            paddingBottom: 4,
+            gap: 12,
+          }}>
+            <TouchableOpacity
+              onPress={() => {}}
+              activeOpacity={0.7}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Ionicons name="bookmark-outline" size={22} color={textColor} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {}}
+              activeOpacity={0.7}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Ionicons name="ellipsis-horizontal" size={22} color={textColor} />
+            </TouchableOpacity>
+          </View>
+
           {/* Poster Image - 2:3 aspect ratio, centered with padding */}
           {event.posterImage && (
             <View style={{
@@ -168,7 +186,7 @@ export default function EventDetailModal({
           {/* Event Information */}
           <View style={{ paddingHorizontal: 20, alignItems: 'center' }}>
             {/* Title */}
-            <View style={{ marginBottom: 24 }}>
+            <View>
               <Text style={{
                 color: textColor,
                 fontSize: 36,
@@ -179,6 +197,40 @@ export default function EventDetailModal({
                 {event.title || 'Event'}
               </Text>
             </View>
+
+            {/* Price - Centered (shown under title) */}
+            {event.price !== null && event.price !== undefined && (
+              <View style={{
+                alignItems: 'center',
+                marginBottom: 12,
+              }}>
+                {event.price === 0 ? (
+                  <View style={{
+                    backgroundColor: Colors[colorScheme].green,
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: 999,
+                  }}>
+                    <Text style={{
+                      color: Colors[colorScheme].background,
+                      fontSize: 14,
+                      fontWeight: '700',
+                    }}>
+                      Free
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={{
+                    color: textColor,
+                    fontSize: 18,
+                    fontWeight: '600',
+                    textAlign: 'center',
+                  }}>
+                    {`$${event.price}`}
+                  </Text>
+                )}
+              </View>
+            )}
 
             {/* Single Date - Show under title */}
             {event.dates && event.dates.length === 1 && (
@@ -197,72 +249,6 @@ export default function EventDetailModal({
               </View>
             )}
 
-            {/* Location - Centered, Clickable */}
-            {(event.address || event.locationName) && (
-              <TouchableOpacity
-                onPress={handleOpenLocation}
-                activeOpacity={0.7}
-                style={{
-                  alignItems: 'center',
-                  marginBottom: 12,
-                }}
-              >
-                <Text style={{
-                  color: '#3B82F6',
-                  fontSize: 18,
-                  fontWeight: '400',
-                  textAlign: 'center',
-                  textDecorationLine: 'underline',
-                }}>
-                  {event.locationName || event.address}
-                </Text>
-                {event.address && event.locationName && event.address !== event.locationName && (
-                  <Text style={{
-                    color: textColor,
-                    fontSize: 14,
-                    fontWeight: '300',
-                    textAlign: 'center',
-                    marginTop: 4,
-                    opacity: 0.7,
-                  }}>
-                    {event.address}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            )}
-
-            {/* Price - Centered */}
-            {event.price !== null && event.price !== undefined && (
-              <View style={{
-                alignItems: 'center',
-                marginBottom: 16,
-              }}>
-                <Text style={{
-                  color: textColor,
-                  fontSize: 18,
-                  fontWeight: '600',
-                  textAlign: 'center',
-                }}>
-                  {event.price === 0 ? 'Free' : `$${event.price}`}
-                </Text>
-              </View>
-            )}
-            {event.price === null && (
-              <View style={{
-                alignItems: 'center',
-                marginBottom: 16,
-              }}>
-                <Text style={{
-                  color: textColor,
-                  fontSize: 18,
-                  fontWeight: '400',
-                  textAlign: 'center',
-                  opacity: 0.7,
-                }}>
-                  Price TBD
-                </Text>
-              </View>
-            )}
           </View>
 
           {/* Multiple Dates Card - Show above details if more than one date */}
@@ -320,6 +306,52 @@ export default function EventDetailModal({
 
           {/* Content cards */}
           <View style={{ paddingHorizontal: 20, paddingTop: 20, gap: 16 }}>
+            {/* Location Card */}
+            {(event.address || event.locationName) && (
+              <GlassView
+                style={{
+                  borderRadius: 20,
+                  padding: 20,
+                  overflow: 'hidden',
+                }}
+                glassEffectStyle="regular"
+              >
+                <Text style={{
+                  color: textColor,
+                  fontSize: 14,
+                  fontWeight: '600',
+                  marginBottom: 12,
+                  opacity: 0.7,
+                }}>
+                  Location
+                </Text>
+                <TouchableOpacity
+                  onPress={handleOpenLocation}
+                  activeOpacity={0.7}
+                  style={{ alignItems: 'flex-start', gap: 6 }}
+                >
+                  <Text style={{
+                    color: '#3B82F6',
+                    fontSize: 18,
+                    fontWeight: '500',
+                    textDecorationLine: 'underline',
+                  }}>
+                    {event.locationName || event.address}
+                  </Text>
+                  {event.address && event.locationName && event.address !== event.locationName && (
+                    <Text style={{
+                      color: textColor,
+                      fontSize: 14,
+                      fontWeight: '300',
+                      opacity: 0.8,
+                    }}>
+                      {event.address}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </GlassView>
+            )}
+
             {/* Host/Description Card */}
             {(event.organizationName || event.description) && (
               <GlassView
@@ -454,21 +486,6 @@ export default function EventDetailModal({
           </View>
         </ScrollView>
     </View>
-  );
-
-  if (!visible && !isBottomSheetOpen) {
-    return null;
-  }
-
-  return (
-    <Host style={{ position: 'absolute', width, height, zIndex: 1000, pointerEvents: 'box-none' }}>
-      <BottomSheet
-        isOpened={isBottomSheetOpen}
-        onIsOpenedChange={handleBottomSheetClose}
-      >
-        {renderContent()}
-      </BottomSheet>
-    </Host>
   );
 }
 

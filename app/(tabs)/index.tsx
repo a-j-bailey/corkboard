@@ -1,11 +1,11 @@
 import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { FlatList, Platform, RefreshControl, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import EventDetailModal from '../components/EventDetailModal';
-import { Colors } from '../constants/theme';
-import { Event, useEvents } from '../contexts/EventContext';
-import { useTheme } from '../contexts/ThemeContext';
+import { Colors } from '../../constants/theme';
+import { Event, useEvents } from '../../contexts/EventContext';
+import { useTheme } from '../../contexts/ThemeContext';
 
 export default function HomeScreen() {
   const { width } = useWindowDimensions();
@@ -13,10 +13,9 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { events, refreshEvents, loading } = useEvents();
   const [rotations, setRotations] = useState<number[]>([]);
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-  const [isModalVisible, setIsModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  
+  const router = useRouter();
+
   // Calculate number of columns (2 or 3 columns)
   const gap = 32;
   const padding = 16;
@@ -38,13 +37,7 @@ export default function HomeScreen() {
   }, [events]);
 
   const handleCardPress = (event: Event) => {
-    setSelectedEvent(event);
-    setIsModalVisible(true);
-  };
-
-  const handleCloseModal = () => {
-    setIsModalVisible(false);
-    setSelectedEvent(null);
+    router.push(`/event/${event.id}`);
   };
 
   const onRefresh = async () => {
@@ -113,11 +106,6 @@ export default function HomeScreen() {
             progressViewOffset={Platform.OS === 'ios' ? insets.top : 0}
           />
         }
-      />
-      <EventDetailModal
-        visible={isModalVisible}
-        onClose={handleCloseModal}
-        event={selectedEvent}
       />
     </View>
   );

@@ -14,13 +14,13 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors } from '../../constants/theme';
-import { Event, SocialMediaHandles, useEvents } from '../../contexts/EventContext';
-import { useTheme } from '../../contexts/ThemeContext';
-import { formatEventDates, formatDateOnly, formatTime } from '../../utils/dateFormatter';
-import { XSymbol } from '../../components/XSymbol';
-import { parseDates, parsePriceToNumber } from '../../services/eventParser';
-import { geocodeLocation } from '../../services/geocodingService';
+import { XSymbol } from '../../../components/XSymbol';
+import { Colors } from '../../../constants/theme';
+import { Event, SocialMediaHandles, useEvents } from '../../../contexts/EventContext';
+import { useTheme } from '../../../contexts/ThemeContext';
+import { parseDates, parsePriceToNumber } from '../../../services/eventParser';
+import { geocodeLocation } from '../../../services/geocodingService';
+import { formatDateOnly, formatTime } from '../../../utils/dateFormatter';
 
 export default function PreviewScreen() {
   const router = useRouter();
@@ -200,107 +200,82 @@ export default function PreviewScreen() {
         }
       }
 
+      // Construct social media handles object
       const socialMediaHandles: SocialMediaHandles = {};
       if (x.trim()) socialMediaHandles.x = x.trim();
       if (instagram.trim()) socialMediaHandles.instagram = instagram.trim();
       if (facebook.trim()) socialMediaHandles.facebook = facebook.trim();
 
-      const eventToSave: Omit<Event, 'id' | 'userId' | 'createdAt' | 'updatedAt'> = {
+      const eventData: Omit<Event, 'id' | 'userId' | 'createdAt' | 'updatedAt'> = {
         title: title.trim(),
-        dates: dates,
-        price: price,
-        locationName: locationName,
+        dates,
+        price,
         address: address.trim() || undefined,
-        latitude: latitude,
-        longitude: longitude,
         websiteUrl: websiteUrl.trim() || undefined,
+        socialMediaHandles: Object.keys(socialMediaHandles).length > 0 ? socialMediaHandles : undefined,
         description: description.trim() || undefined,
         organizationName: organizationName.trim() || undefined,
-        socialMediaHandles: Object.keys(socialMediaHandles).length > 0 ? socialMediaHandles : undefined,
-        posterImage: '', // Will be set after image upload
+        posterImage: posterImageUri || '',
+        locationName,
+        latitude,
+        longitude,
       };
 
-      console.log('[PreviewScreen] Saving event with dates:', JSON.stringify(dates, null, 2));
-      console.log('[PreviewScreen] Number of dates:', dates.length);
+      console.log('[PreviewScreen] Saving event:', JSON.stringify(eventData, null, 2));
+      await addEvent(eventData, posterImageUri);
 
-      await addEvent(eventToSave, posterImageUri || initialEventData.posterImage);
-      Alert.alert('Success', 'Event saved successfully!', [
-        {
-          text: 'OK',
-          onPress: () => {
-            router.back();
-          },
-        },
-      ]);
+      Alert.alert('Success', 'Event saved successfully!');
+      router.replace('/');
     } catch (error) {
       console.error('[PreviewScreen] Error saving event:', error);
-      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to save event. Please try again.');
+      Alert.alert('Error', 'Failed to save event. Please try again.');
     } finally {
       setIsSaving(false);
     }
   };
 
-  const placeholderColor = colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.5)';
-  const placeholderColorLight = colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)';
-  const imageBgColor = colorScheme === 'dark' ? '#1F1F1F' : '#E5E7EB';
+  const placeholderColor = colorScheme === 'dark' ? '#6B7280' : '#9CA3AF';
 
   return (
-    <View style={{ flex: 1, backgroundColor }}>
-      {/* Header with close button */}
-      <SafeAreaView edges={['top']} style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
-        <View style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          paddingHorizontal: 20,
-          paddingVertical: 12,
-        }}>
-          <TouchableOpacity 
-            onPress={() => {
-              if (!isSaving) {
-                router.back();
-              }
-            }} 
-            disabled={isSaving}
-            activeOpacity={0.7}
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 16,
-              backgroundColor: colorScheme === 'dark' ? 'rgba(0, 0, 0, 0.5)' : 'rgba(255, 255, 255, 0.8)',
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}
-          >
-            <Ionicons 
-              name="close" 
-              size={20} 
-              color={colorScheme === 'dark' ? '#FFFFFF' : '#000000'} 
-            />
-          </TouchableOpacity>
-          <View style={{ width: 32 }} />
-        </View>
-      </SafeAreaView>
-
+    <SafeAreaView style={{ flex: 1, backgroundColor }}>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Poster Image - 2:3 aspect ratio, centered with padding */}
-        {posterImageUri && (
-          <View style={{
-            paddingHorizontal: 20,
-            paddingTop: 20,
-            paddingBottom: 24,
-            alignItems: 'center',
-          }}>
+        <View style={{
+          position: 'absolute',
+          top: insets.top + 12,
+          right: 16,
+          zIndex: 1,
+          flexDirection: 'row',
+          gap: 12,
+        }}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: Colors[colorScheme].background,
+            }}
+          >
+            <Ionicons name="close" size={22} color={textColor} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Poster Image */}
+        {posterImageUri ? (
+          <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
             <View style={{
-              width: (width - 40) * 0.6,
-              height: ((width - 40) * 0.6 * 3) / 2,
-              borderRadius: 12,
+              width: '100%',
+              aspectRatio: 2 / 3,
+              borderRadius: 16,
               overflow: 'hidden',
-              backgroundColor: imageBgColor,
+              backgroundColor: colorScheme === 'dark' ? '#1F1F1F' : '#E5E7EB',
             }}>
               <Image
                 source={{ uri: posterImageUri }}
@@ -309,135 +284,151 @@ export default function PreviewScreen() {
               />
             </View>
           </View>
+        ) : (
+          <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
+            <GlassView
+              style={{
+                borderRadius: 16,
+                padding: 16,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              glassEffectStyle="regular"
+            >
+              <Text style={{ color: textColor, opacity: 0.6 }}>
+                No poster image available
+              </Text>
+            </GlassView>
+          </View>
         )}
 
-        {/* Event Information */}
-        <View style={{ paddingHorizontal: 20, alignItems: 'center' }}>
-          {/* Title */}
-          {title ? (
-            <View style={{ marginBottom: 24 }}>
-              <TextInput
-                style={{
-                  color: textColor,
-                  fontSize: 36,
-                  fontWeight: '700',
-                  textAlign: 'center',
-                  paddingVertical: 8,
-                }}
-                value={title}
-                onChangeText={setTitle}
-                placeholder="Event Title"
-                placeholderTextColor={placeholderColor}
-                editable={!isSaving}
-                multiline
-              />
-            </View>
-          ) : (
-            <View style={{ marginBottom: 24 }}>
-              <TextInput
-                style={{
-                  color: placeholderColor,
-                  fontSize: 36,
-                  fontWeight: '700',
-                  textAlign: 'center',
-                  paddingVertical: 8,
-                }}
-                value=""
-                onChangeText={setTitle}
-                placeholder="Event Title *"
-                placeholderTextColor={placeholderColorLight}
-                editable={!isSaving}
-                multiline
-              />
-            </View>
-          )}
+        {/* Title */}
+        <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
+          <TextInput
+            style={{
+              color: textColor,
+              fontSize: 28,
+              fontWeight: '700',
+              marginBottom: 12,
+              textAlign: 'center',
+            }}
+            value={title}
+            onChangeText={setTitle}
+            placeholder="Event Title"
+            placeholderTextColor={placeholderColor}
+            editable={!isSaving}
+          />
+        </View>
 
-          {/* Single Date - Show under title */}
-          {(() => {
-            // Use original dates array if available, otherwise parse from date/time strings
-            const datesToDisplay = originalDates.length > 0 ? originalDates : parseDates(date || '', time || undefined);
-            const hasMultipleDates = datesToDisplay.length > 1;
-            
-            if (!hasMultipleDates && datesToDisplay.length > 0) {
-              return (
-                <View style={{
-                  alignItems: 'center',
-                  marginBottom: 12,
-                }}>
-                  <Text style={{
-                    color: textColor,
-                    fontSize: 18,
-                    fontWeight: '500',
-                    textAlign: 'center',
-                  }}>
-                    {formatEventDates(datesToDisplay)}
-                  </Text>
-                </View>
-              );
-            }
-            return null;
-          })()}
+        {/* Date and Time */}
+        <View style={{ paddingHorizontal: 20 }}>
+          <TextInput
+            style={{
+              color: textColor,
+              fontSize: 16,
+              fontWeight: '500',
+              textAlign: 'center',
+              marginBottom: 8,
+            }}
+            value={date}
+            onChangeText={setDate}
+            placeholder="Event Date(s)"
+            placeholderTextColor={placeholderColor}
+            editable={!isSaving}
+          />
+          <TextInput
+            style={{
+              color: textColor,
+              fontSize: 16,
+              fontWeight: '400',
+              textAlign: 'center',
+              marginBottom: 8,
+            }}
+            value={time}
+            onChangeText={setTime}
+            placeholder="Time"
+            placeholderTextColor={placeholderColor}
+            editable={!isSaving}
+          />
+        </View>
 
-          {/* Location - Centered */}
-          {address && (
+        {/* Location - Centered */}
+        {address && (
+          <View style={{
+            alignItems: 'center',
+            marginBottom: 12,
+          }}>
+            <TextInput
+              style={{
+                color: textColor,
+                fontSize: 18,
+                fontWeight: '400',
+                textAlign: 'center',
+              }}
+              value={address}
+              onChangeText={setAddress}
+              placeholder="Location"
+              placeholderTextColor={placeholderColor}
+              editable={!isSaving}
+              multiline
+            />
+          </View>
+        )}
+
+        {/* Cost - Centered */}
+          {cost && (
             <View style={{
               alignItems: 'center',
-              marginBottom: 12,
+              marginBottom: 16,
             }}>
               <TextInput
                 style={{
                   color: textColor,
                   fontSize: 18,
-                  fontWeight: '400',
+                  fontWeight: '600',
                   textAlign: 'center',
                 }}
-                value={address}
-                onChangeText={setAddress}
-                placeholder="Location"
+                value={cost}
+                onChangeText={setCost}
+                placeholder="Cost"
                 placeholderTextColor={placeholderColor}
                 editable={!isSaving}
-                multiline
               />
-            </View>
-          )}
-
-          {/* Cost - Centered */}
-            {cost && (
-              <View style={{
-                alignItems: 'center',
-                marginBottom: 16,
-              }}>
-                <TextInput
-                  style={{
-                    color: textColor,
-                    fontSize: 18,
-                    fontWeight: '600',
-                    textAlign: 'center',
-                  }}
-                  value={cost}
-                  onChangeText={setCost}
-                  placeholder="Cost"
-                  placeholderTextColor={placeholderColor}
-                  editable={!isSaving}
-                />
-                {cost && (
+              {cost && (() => {
+                const price = parsePriceToNumber(cost);
+                if (price === 0) {
+                  return (
+                    <View style={{
+                      backgroundColor: Colors[colorScheme].green,
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      borderRadius: 999,
+                      marginTop: 6,
+                    }}>
+                      <Text style={{
+                        color: Colors[colorScheme].background,
+                        fontSize: 14,
+                        fontWeight: '700',
+                      }}>
+                        Free
+                      </Text>
+                    </View>
+                  );
+                }
+                if (price === null) return null;
+                return (
                   <Text style={{
                     color: textColor,
                     fontSize: 14,
                     opacity: 0.7,
                     marginTop: 4,
                   }}>
-                    {(() => {
-                      const price = parsePriceToNumber(cost);
-                      if (price === 0) return 'Free';
-                      if (price === null) return 'Price TBD';
-                      return `$${price}`;
-                    })()}
+                    {`$${price}`}
                   </Text>
-                )}
-              </View>
-            )}
-        </View>
+                );
+              })()}
+            </View>
+          )}
 
         {/* Multiple Dates Card - Show above details if more than one date */}
         {(() => {
@@ -501,64 +492,9 @@ export default function PreviewScreen() {
           return null;
         })()}
 
-        {/* Content cards */}
         <View style={{ paddingHorizontal: 20, paddingTop: 20, gap: 16 }}>
-          {/* Host/Description Card */}
-          {(organizationName || description) && (
-            <GlassView
-              style={{
-                borderRadius: 20,
-                padding: 20,
-                overflow: 'hidden',
-              }}
-              glassEffectStyle="regular"
-            >
-              {organizationName && (
-                <View style={{ marginBottom: 12 }}>
-                  <Text style={{
-                    color: textColor,
-                    fontSize: 14,
-                    fontWeight: '600',
-                    marginBottom: 4,
-                    opacity: 0.7,
-                  }}>
-                    Hosted by
-                  </Text>
-                  <TextInput
-                    style={{
-                      color: textColor,
-                      fontSize: 18,
-                      fontWeight: '600',
-                    }}
-                    value={organizationName}
-                    onChangeText={setOrganizationName}
-                    placeholder="Organization Name"
-                    placeholderTextColor={placeholderColor}
-                    editable={!isSaving}
-                  />
-                </View>
-              )}
-              {description && (
-                <TextInput
-                  style={{
-                    color: textColor,
-                    fontSize: 15,
-                    lineHeight: 22,
-                  }}
-                  value={description}
-                  onChangeText={setDescription}
-                  placeholder="Event description..."
-                  placeholderTextColor={placeholderColor}
-                  editable={!isSaving}
-                  multiline
-                  textAlignVertical="top"
-                />
-              )}
-            </GlassView>
-          )}
-
-          {/* Date/Time Card */}
-          {!date && (
+          {/* Location Card */}
+          {(address || originalDates.length > 0) && (
             <GlassView
               style={{
                 borderRadius: 20,
@@ -574,20 +510,64 @@ export default function PreviewScreen() {
                 marginBottom: 12,
                 opacity: 0.7,
               }}>
-                Date *
+                Location
               </Text>
-              <TextInput
-                style={{
+              <TouchableOpacity
+                onPress={() => {}}
+                activeOpacity={0.7}
+                style={{ alignItems: 'flex-start', gap: 6 }}
+              >
+                <Text style={{
+                  color: '#3B82F6',
+                  fontSize: 18,
+                  fontWeight: '500',
+                  textDecorationLine: 'underline',
+                }}>
+                  {address || 'Location not set'}
+                </Text>
+              </TouchableOpacity>
+            </GlassView>
+          )}
+
+          {/* Host/Description Card */}
+          {(organizationName || description) && (
+            <GlassView
+              style={{
+                borderRadius: 20,
+                padding: 20,
+                overflow: 'hidden',
+              }}
+              glassEffectStyle="regular"
+            >
+                {organizationName && (
+                <View style={{ marginBottom: 12 }}>
+                  <Text style={{
+                    color: textColor,
+                    fontSize: 14,
+                    fontWeight: '600',
+                    marginBottom: 4,
+                    opacity: 0.7,
+                  }}>
+                    Hosted by
+                  </Text>
+                  <Text style={{
+                    color: textColor,
+                    fontSize: 18,
+                    fontWeight: '600',
+                  }}>
+                      {organizationName}
+                  </Text>
+                </View>
+              )}
+                {description && (
+                <Text style={{
                   color: textColor,
-                  fontSize: 16,
-                  paddingVertical: 8,
-                }}
-                value={date}
-                onChangeText={setDate}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={placeholderColorLight}
-                editable={!isSaving}
-              />
+                  fontSize: 15,
+                  lineHeight: 22,
+                }}>
+                    {description}
+                </Text>
+              )}
             </GlassView>
           )}
 
@@ -612,76 +592,68 @@ export default function PreviewScreen() {
               </Text>
               <View style={{ gap: 16 }}>
                 {websiteUrl && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <TouchableOpacity
+                    onPress={() => {}}
+                    activeOpacity={0.7}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}
+                  >
                     <Ionicons name="link-outline" size={20} color={textColor} style={{ opacity: 0.7 }} />
-                    <TextInput
-                      style={{
-                        color: '#3B82F6',
-                        fontSize: 16,
-                        flex: 1,
-                        textDecorationLine: 'underline',
-                      }}
-                      value={websiteUrl}
-                      onChangeText={setWebsiteUrl}
-                      placeholder="Website"
-                      placeholderTextColor="rgba(59, 130, 246, 0.5)"
-                      editable={!isSaving}
-                      keyboardType="url"
-                      autoCapitalize="none"
-                    />
-                  </View>
+                    <Text style={{
+                      color: '#3B82F6',
+                      fontSize: 16,
+                      flex: 1,
+                      textDecorationLine: 'underline',
+                    }}>
+                      {websiteUrl}
+                    </Text>
+                  </TouchableOpacity>
                 )}
                 {(x || instagram || facebook) && (
                   <View style={{ flexDirection: 'row', gap: 16, flexWrap: 'wrap' }}>
                     {x && (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <TouchableOpacity
+                        onPress={() => {}}
+                        activeOpacity={0.7}
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
+                      >
                         <XSymbol size={20} color={textColor} />
-                        <TextInput
-                          style={{
-                            color: textColor,
-                            fontSize: 14,
-                          }}
-                          value={x}
-                          onChangeText={setX}
-                          placeholder="@username"
-                          placeholderTextColor={placeholderColor}
-                          editable={!isSaving}
-                          autoCapitalize="none"
-                        />
-                      </View>
+                        <Text style={{
+                          color: textColor,
+                          fontSize: 14,
+                        }}>
+                          {x}
+                        </Text>
+                      </TouchableOpacity>
                     )}
                     {instagram && (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <TouchableOpacity
+                        onPress={() => {}}
+                        activeOpacity={0.7}
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
+                      >
                         <Ionicons name="logo-instagram" size={20} color="#E4405F" />
-                        <TextInput
-                          style={{
-                            color: textColor,
-                            fontSize: 14,
-                          }}
-                          value={instagram}
-                          onChangeText={setInstagram}
-                          placeholder="@username"
-                          placeholderTextColor={placeholderColor}
-                          editable={!isSaving}
-                          autoCapitalize="none"
-                        />
-                      </View>
+                        <Text style={{
+                          color: textColor,
+                          fontSize: 14,
+                        }}>
+                          {instagram}
+                        </Text>
+                      </TouchableOpacity>
                     )}
                     {facebook && (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <TouchableOpacity
+                        onPress={() => {}}
+                        activeOpacity={0.7}
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
+                      >
                         <Ionicons name="logo-facebook" size={20} color="#1877F2" />
-                        <TextInput
-                          style={{
-                            color: textColor,
-                            fontSize: 14,
-                          }}
-                          value={facebook}
-                          onChangeText={setFacebook}
-                          placeholder="Page name"
-                          placeholderTextColor={placeholderColor}
-                          editable={!isSaving}
-                        />
-                      </View>
+                        <Text style={{
+                          color: textColor,
+                          fontSize: 14,
+                        }}>
+                          {facebook}
+                        </Text>
+                      </TouchableOpacity>
                     )}
                   </View>
                 )}
@@ -691,39 +663,44 @@ export default function PreviewScreen() {
         </View>
       </ScrollView>
 
-      {/* Submit Button - Fixed at bottom */}
-      <View style={{
-        position: 'absolute',
-        bottom: insets.bottom + 20,
-        left: 20,
-        right: 20,
-      }}>
-        <TouchableOpacity
-          onPress={handleSave}
-          disabled={isSaving}
-          activeOpacity={0.7}
-        >
-          <GlassView
+      {/* Save Button */}
+      <SafeAreaView edges={['bottom']} style={{ backgroundColor }}>
+        <View style={{
+          paddingHorizontal: 20,
+          paddingVertical: 12,
+          borderTopWidth: 1,
+          borderTopColor: colorScheme === 'dark' ? '#1F2937' : '#E5E7EB',
+        }}>
+          <TouchableOpacity
+            onPress={handleSave}
+            disabled={isSaving}
+            activeOpacity={0.85}
             style={{
-              height: 56,
-              borderRadius: 28,
-              justifyContent: 'center',
+              backgroundColor: tintColor,
+              paddingVertical: 14,
+              borderRadius: 14,
               alignItems: 'center',
-              paddingHorizontal: 24,
+              flexDirection: 'row',
+              justifyContent: 'center',
+              gap: 8,
+              opacity: isSaving ? 0.7 : 1,
             }}
-            glassEffectStyle="regular"
-            isInteractive
           >
             {isSaving ? (
-              <ActivityIndicator color={tintColor} />
+              <ActivityIndicator color={Colors[colorScheme].background} />
             ) : (
-              <Text style={{ color: tintColor, fontSize: 16, fontWeight: '600' }}>
-                Submit
-              </Text>
+              <Ionicons name="save-outline" size={18} color={Colors[colorScheme].background} />
             )}
-          </GlassView>
-        </TouchableOpacity>
-      </View>
-    </View>
+            <Text style={{
+              color: Colors[colorScheme].background,
+              fontSize: 16,
+              fontWeight: '700',
+            }}>
+              {isSaving ? 'Saving...' : 'Save Event'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    </SafeAreaView>
   );
 }

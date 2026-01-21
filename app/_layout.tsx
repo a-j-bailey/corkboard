@@ -2,38 +2,25 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import '../global.css';
 
-import { Colors } from '@/constants/theme';
-import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
+import { Stack } from 'expo-router';
 import { EventProvider } from '../contexts/EventContext';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
-import { UserProvider, useUser } from '../contexts/UserContext';
+import { UserProvider } from '../contexts/UserContext';
 
-function RootLayoutContent() {
+function RootStack() {
   const { colorScheme } = useTheme();
-  const { user } = useUser();
-  
+
   return (
     <>
-      <NativeTabs tintColor={Colors[colorScheme].tint}>
-        <NativeTabs.Trigger name="index">
-          <Icon sf="square.grid.2x2.fill" />
-          <Label>Board</Label>
-        </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="profile">
-          <Icon sf="person.fill" />
-          <Label>Profile</Label>
-        </NativeTabs.Trigger>
-        {user && (
-          <NativeTabs.Trigger name="add" role="search">
-            <Icon sf="pin.fill" />
-            <Label>Add</Label>
-          </NativeTabs.Trigger>
-        )}
-        {/* <NativeTabs.Trigger name="preview">
-          <Icon sf="eye.fill" />
-          <Label>Preview</Label>
-        </NativeTabs.Trigger> */}
-      </NativeTabs>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen
+          name="event/[id]"
+          options={{
+            presentation: 'modal',
+          }}
+        />
+      </Stack>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
     </>
   );
@@ -44,7 +31,7 @@ export default function RootLayout() {
     <ThemeProvider>
       <UserProvider>
         <EventProvider>
-          <RootLayoutContent />
+          <RootStack />
         </EventProvider>
       </UserProvider>
     </ThemeProvider>
