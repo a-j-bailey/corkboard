@@ -1,4 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import { useRouter } from 'expo-router';
 import { ActivityIndicator, Platform, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '../../components/themed-text';
@@ -9,6 +11,7 @@ import { useUser } from '../../contexts/UserContext';
 export default function ProfileScreen() {
   const { colorScheme } = useTheme();
   const { user, loading, signInWithApple, signOut } = useUser();
+  const router = useRouter();
   const backgroundColor = Colors[colorScheme].background;
   const textColor = Colors[colorScheme].text;
   const tintColor = Colors[colorScheme].tint;
@@ -55,6 +58,34 @@ export default function ProfileScreen() {
           </View>
 
           <View style={{ gap: 12 }}>
+            <TouchableOpacity
+              onPress={() => router.push('/bookmarks')}
+              activeOpacity={0.8}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingVertical: 14,
+                paddingHorizontal: 16,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: colorScheme === 'dark' ? '#333' : '#E5E7EB',
+                backgroundColor: colorScheme === 'dark' ? '#1F1F1F' : '#F9FAFB',
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <Ionicons name="bookmark-outline" size={20} color={textColor} />
+                <Text style={{
+                  color: textColor,
+                  fontWeight: '600',
+                  fontSize: 16,
+                }}>
+                  Bookmarks
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={textColor} style={{ opacity: 0.5 }} />
+            </TouchableOpacity>
+
             <TouchableOpacity
               onPress={signOut}
               activeOpacity={0.8}

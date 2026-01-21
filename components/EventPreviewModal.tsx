@@ -3,7 +3,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { GlassView } from 'expo-glass-effect';
 import { Image } from 'expo-image';
 import { useEffect, useState } from 'react';
-import { XSymbol } from './XSymbol';
 import {
   ActivityIndicator,
   Alert,
@@ -19,6 +18,7 @@ import { Event, SocialMediaHandles, useEvents } from '../contexts/EventContext';
 import { parseDates, parsePriceToNumber } from '../services/eventParser';
 import { geocodeLocation } from '../services/geocodingService';
 import { formatDateOnly, formatTime } from '../utils/dateFormatter';
+import { XSymbol } from './XSymbol';
 
 interface EventPreviewModalProps {
   visible: boolean;
