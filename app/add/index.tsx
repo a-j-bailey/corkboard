@@ -25,6 +25,7 @@ export default function AddScreen() {
   const { colorScheme } = useTheme();
   const backgroundColor = Colors[colorScheme].background;
   const textColor = Colors[colorScheme].text;
+  const tintColor = Colors[colorScheme].tint;
   const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -274,6 +275,7 @@ export default function AddScreen() {
                     paddingHorizontal: 32,
                     overflow: 'hidden',
                   }}
+                  tintColor={tintColor}
                   glassEffectStyle="regular"
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>

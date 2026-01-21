@@ -30,6 +30,7 @@ export default function PreviewScreen() {
   const { colorScheme } = useTheme();
   const backgroundColor = Colors[colorScheme].background;
   const textColor = Colors[colorScheme].text;
+  const tintColor = Colors[colorScheme].tint;
   const [isSaving, setIsSaving] = useState(false);
   
   // Get params from route
@@ -714,9 +715,9 @@ export default function PreviewScreen() {
             isInteractive
           >
             {isSaving ? (
-              <ActivityIndicator color={textColor} />
+              <ActivityIndicator color={tintColor} />
             ) : (
-              <Text style={{ color: textColor, fontSize: 16, fontWeight: '600' }}>
+              <Text style={{ color: tintColor, fontSize: 16, fontWeight: '600' }}>
                 Submit
               </Text>
             )}
