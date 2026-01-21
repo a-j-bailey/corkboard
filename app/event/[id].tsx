@@ -1,10 +1,11 @@
+import { Button, ContextMenu, Host } from '@expo/ui/swift-ui';
 import { Ionicons } from '@expo/vector-icons';
 import { GlassView } from 'expo-glass-effect';
 import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -42,18 +43,22 @@ export default function EventDetailRoute() {
     }
   }, [event, id, loading, refreshEvents]);
 
-  // Create header buttons component with stable reference
-  const headerRight = useCallback(() => (
-    <Ionicons name="bookmark-outline" size={20} color={textColor} />
-  ), [textColor]);
-
-  // Set the navigation title and header buttons based on the event
+  // Hide the default header
   useEffect(() => {
     navigation.setOptions({
-      title: event?.title || 'Event',
-      headerRight,
+      headerShown: false,
     });
-  }, [event?.title, navigation, headerRight]);
+  }, [navigation]);
+
+  const handleBookmark = () => {
+    // Functionality to be implemented later
+    console.log('Bookmark pressed');
+  };
+
+  const handleReport = () => {
+    // Report functionality
+    console.log('Report event');
+  };
 
   const handleOpenURL = async (url: string) => {
     try {
@@ -187,9 +192,76 @@ export default function EventDetailRoute() {
         backgroundColor: Colors[colorScheme].background,
       }}
     >
+      {/* Custom Header with Round Buttons */}
+      <View
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 1000,
+          paddingTop: 16,
+          paddingHorizontal: 16,
+          paddingBottom: 12,
+          flexDirection: 'row',
+          justifyContent: 'flex-end',
+          alignItems: 'center',
+          gap: 12,
+        }}
+      >
+        {/* Bookmark Button */}
+        <TouchableOpacity
+          onPress={handleBookmark}
+          activeOpacity={0.7}
+        >
+          <GlassView
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              justifyContent: 'center',
+              alignItems: 'center',
+              overflow: 'hidden',
+            }}
+            glassEffectStyle="regular"
+          >
+            <Ionicons name="bookmark-outline" size={24} color={textColor} />
+          </GlassView>
+        </TouchableOpacity>
+
+        {/* More Button with Dropdown */}
+        <Host style={{ width: 44, height: 44, borderRadius: 22, overflow: 'hidden' }}>
+          <ContextMenu>
+            <ContextMenu.Items>
+              <Button
+                systemImage="exclamationmark.triangle"
+                onPress={handleReport}
+              >
+                Report
+              </Button>
+            </ContextMenu.Items>
+            <ContextMenu.Trigger>
+              <GlassView
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  overflow: 'hidden',
+                }}
+                glassEffectStyle="regular"
+              >
+                <Ionicons name="ellipsis-horizontal" size={24} color={textColor} />
+              </GlassView>
+            </ContextMenu.Trigger>
+          </ContextMenu>
+        </Host>
+      </View>
+
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 90 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom, paddingTop: insets.top}}
         showsVerticalScrollIndicator={false}
       >
         {/* Poster Image - 2:3 aspect ratio, centered with padding */}
