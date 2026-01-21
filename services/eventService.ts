@@ -242,18 +242,23 @@ export async function getEvents(userId?: string): Promise<Event[]> {
 
     const events = (data as DatabaseEvent[]).map(dbEventToEvent);
 
+    // Filter out events with pending or confirmed reports
+    const { getEventIdsWithActiveReports } = await import('./reportService');
+    const reportedEventIds = await getEventIdsWithActiveReports();
+    const filteredEvents = events.filter((event) => !reportedEventIds.has(event.id));
+
     // If userId is provided, fetch bookmark status
     if (userId) {
       const { getBookmarkedEventIds } = await import('./bookmarkService');
       const bookmarkedIds = await getBookmarkedEventIds(userId);
       
       // Add isBookmarked property to each event
-      events.forEach((event) => {
+      filteredEvents.forEach((event) => {
         (event as Event & { isBookmarked?: boolean }).isBookmarked = bookmarkedIds.has(event.id);
       });
     }
 
-    return events;
+    return filteredEvents;
   } catch (error) {
     console.error('[EventService] Error fetching events:', error);
     throw error;

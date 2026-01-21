@@ -59,9 +59,9 @@ export default function EventDetailRoute() {
   };
 
   const handleReport = () => {
+    if (!event) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    // Report functionality
-    console.log('Report event');
+    router.push(`/report/${event.id}`);
   };
 
   const handleOpenURL = async (url: string) => {

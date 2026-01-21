@@ -33,6 +33,13 @@ function RootStack() {
             title: 'Bookmarks',
           }}
         />
+        <Stack.Screen
+          name="report/[eventId]"
+          options={{
+            presentation: 'modal',
+            title: 'Report Event',
+          }}
+        />
       </Stack>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
     </>
