@@ -20,7 +20,7 @@ export default function TabsLayout() {
           <Label>Profile</Label>
         </NativeTabs.Trigger>
         {user && (
-          <NativeTabs.Trigger name="add/index" role="search">
+          <NativeTabs.Trigger name="add" role="search">
             <Icon sf="pin.fill" />
             <Label>Add</Label>
           </NativeTabs.Trigger>

@@ -222,10 +222,9 @@ export default function PreviewScreen() {
       };
 
       console.log('[PreviewScreen] Saving event:', JSON.stringify(eventData, null, 2));
-      await addEvent(eventData, posterImageUri);
+      const newEvent = await addEvent(eventData, posterImageUri);
 
-      Alert.alert('Success', 'Event saved successfully!');
-      router.replace('/');
+      router.replace(`/event/${newEvent.id}`);
     } catch (error) {
       console.error('[PreviewScreen] Error saving event:', error);
       Alert.alert('Error', 'Failed to save event. Please try again.');
@@ -687,12 +686,12 @@ export default function PreviewScreen() {
             }}
           >
             {isSaving ? (
-              <ActivityIndicator color={Colors[colorScheme].background} />
+              <ActivityIndicator color={Colors[colorScheme].text} />
             ) : (
-              <Ionicons name="save-outline" size={18} color={Colors[colorScheme].background} />
+              <Ionicons name="save-outline" size={18} color={Colors[colorScheme].text} />
             )}
             <Text style={{
-              color: Colors[colorScheme].background,
+              color: Colors[colorScheme].text,
               fontSize: 16,
               fontWeight: '700',
             }}>

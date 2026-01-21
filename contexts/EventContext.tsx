@@ -37,7 +37,7 @@ interface EventContextType {
   events: Event[];
   loading: boolean;
   error: string | null;
-  addEvent: (event: Omit<Event, 'id' | 'userId' | 'createdAt' | 'updatedAt'>, imageUri?: string) => Promise<void>;
+  addEvent: (event: Omit<Event, 'id' | 'userId' | 'createdAt' | 'updatedAt'>, imageUri?: string) => Promise<Event>;
   getEvents: () => Event[];
   refreshEvents: () => Promise<void>;
 }
@@ -72,7 +72,7 @@ export function EventProvider({ children }: { children: ReactNode }) {
   const addEvent = async (
     eventData: Omit<Event, 'id' | 'userId' | 'createdAt' | 'updatedAt'>,
     imageUri?: string
-  ) => {
+  ): Promise<Event> => {
     if (!user) {
       throw new Error('User must be logged in to create events');
     }
@@ -87,6 +87,7 @@ export function EventProvider({ children }: { children: ReactNode }) {
         imageUri
       );
       setEvents(prev => [newEvent, ...prev]);
+      return newEvent;
     } catch (err) {
       console.error('[EventContext] Error creating event:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to create event';
