@@ -1,6 +1,7 @@
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
-import { useUser } from './UserContext';
+import * as bookmarkService from '../services/bookmarkService';
 import * as eventService from '../services/eventService';
+import { useUser } from './UserContext';
 
 export interface SocialMediaHandles {
   x?: string;
@@ -31,15 +32,18 @@ export interface Event {
   posterImage: string; // Supabase Storage URL
   createdAt: Date;
   updatedAt?: Date;
+  isBookmarked?: boolean; // Whether the current user has bookmarked this event
 }
 
 interface EventContextType {
   events: Event[];
   loading: boolean;
   error: string | null;
+  bookmarkedEventIds: Set<string>;
   addEvent: (event: Omit<Event, 'id' | 'userId' | 'createdAt' | 'updatedAt'>, imageUri?: string) => Promise<Event>;
   getEvents: () => Event[];
   refreshEvents: () => Promise<void>;
+  toggleBookmark: (eventId: string) => Promise<void>;
 }
 
 const EventContext = createContext<EventContextType | undefined>(undefined);
@@ -48,6 +52,7 @@ export function EventProvider({ children }: { children: ReactNode }) {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [bookmarkedEventIds, setBookmarkedEventIds] = useState<Set<string>>(new Set());
   const { user } = useUser();
 
   // Load events on mount and when user changes
@@ -59,13 +64,53 @@ export function EventProvider({ children }: { children: ReactNode }) {
     try {
       setLoading(true);
       setError(null);
-      const fetchedEvents = await eventService.getEvents();
+      const fetchedEvents = await eventService.getEvents(user?.id);
       setEvents(fetchedEvents);
+      
+      // Update bookmarked IDs set
+      if (user) {
+        const bookmarkedIds = await bookmarkService.getBookmarkedEventIds(user.id);
+        setBookmarkedEventIds(bookmarkedIds);
+      } else {
+        setBookmarkedEventIds(new Set());
+      }
     } catch (err) {
       console.error('[EventContext] Error fetching events:', err);
       setError(err instanceof Error ? err.message : 'Failed to load events');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const toggleBookmark = async (eventId: string) => {
+    if (!user) {
+      throw new Error('User must be logged in to bookmark events');
+    }
+
+    try {
+      const isBookmarked = bookmarkedEventIds.has(eventId);
+      
+      if (isBookmarked) {
+        await bookmarkService.deleteBookmark(user.id, eventId);
+        setBookmarkedEventIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(eventId);
+          return newSet;
+        });
+      } else {
+        await bookmarkService.createBookmark(user.id, eventId);
+        setBookmarkedEventIds(prev => new Set(prev).add(eventId));
+      }
+
+      // Update the event's isBookmarked status in the events array
+      setEvents(prev => prev.map(event => 
+        event.id === eventId 
+          ? { ...event, isBookmarked: !isBookmarked }
+          : event
+      ));
+    } catch (err) {
+      console.error('[EventContext] Error toggling bookmark:', err);
+      throw err;
     }
   };
 
@@ -101,7 +146,7 @@ export function EventProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <EventContext.Provider value={{ events, loading, error, addEvent, getEvents, refreshEvents }}>
+    <EventContext.Provider value={{ events, loading, error, bookmarkedEventIds, addEvent, getEvents, refreshEvents, toggleBookmark }}>
       {children}
     </EventContext.Provider>
   );

@@ -2,6 +2,7 @@ import { Button, ContextMenu, Host } from '@expo/ui/swift-ui';
 import { Ionicons } from '@expo/vector-icons';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { GlassView } from 'expo-glass-effect';
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -74,9 +75,9 @@ export default function ProfileScreen() {
               {/* Avatar */}
               <GlassView
                 style={{
-                  width: 80,
-                  height: 80,
-                  borderRadius: 40,
+                  width: 60,
+                  height: 60,
+                  borderRadius: 30,
                   justifyContent: 'center',
                   alignItems: 'center',
                   overflow: 'hidden',
@@ -86,7 +87,7 @@ export default function ProfileScreen() {
               >
                 <Text
                   style={{
-                    fontSize: 32,
+                    fontSize: 24,
                     fontWeight: '700',
                     color: Colors[colorScheme].background,
                   }}
@@ -96,7 +97,7 @@ export default function ProfileScreen() {
               </GlassView>
 
               {/* User Info */}
-              <View style={{ flex: 1, justifyContent: 'center', gap: 4 }}>
+              <View style={{ flex: 1, justifyContent: 'center' }}>
                 <ThemedText
                   type="title"
                   style={{
@@ -107,16 +108,6 @@ export default function ProfileScreen() {
                 >
                   {displayName}
                 </ThemedText>
-                <ThemedText
-                  type="default"
-                  style={{
-                    color: textColor,
-                    opacity: 0.7,
-                    fontSize: 14,
-                  }}
-                >
-                  {email}
-                </ThemedText>
               </View>
 
               {/* Context Menu */}
@@ -125,7 +116,10 @@ export default function ProfileScreen() {
                   <ContextMenu.Items>
                     <Button
                       systemImage="rectangle.portrait.and.arrow.right"
-                      onPress={signOut}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                        signOut();
+                      }}
                       role="destructive"
                     >
                       Sign Out
@@ -155,7 +149,10 @@ export default function ProfileScreen() {
           <View style={{ gap: 16 }}>
             {/* Bookmarks Button */}
             <TouchableOpacity
-              onPress={() => router.push('/bookmarks')}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push('/bookmarks');
+              }}
               activeOpacity={0.7}
             >
               <GlassView
@@ -311,11 +308,17 @@ export default function ProfileScreen() {
                 }
                 cornerRadius={16}
                 style={{ width: '100%', height: 56 }}
-                onPress={signInWithApple}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  signInWithApple();
+                }}
               />
             </Host>
           ) : (
-            <TouchableOpacity onPress={signInWithApple} activeOpacity={0.7}>
+            <TouchableOpacity onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              signInWithApple();
+            }} activeOpacity={0.7}>
               <GlassView
                 style={{
                   borderRadius: 16,

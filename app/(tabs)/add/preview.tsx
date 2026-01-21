@@ -1,6 +1,7 @@
 import { BottomSheet, DateTimePicker, Host, Switch, TextField } from '@expo/ui/swift-ui';
 import { Ionicons } from '@expo/vector-icons';
 import { GlassView } from 'expo-glass-effect';
+import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -80,13 +81,13 @@ const validateURL = (url: string): string | undefined => {
   if (!trimmed) {
     return undefined; // URL is optional
   }
-  // Check if URL starts with http:// or https://
-  if (!trimmed.match(/^https?:\/\//i)) {
-    return 'URL must start with http:// or https://';
-  }
-  // Basic URL validation
+  // Try to validate URL - prepend https:// if no protocol is present
   try {
-    new URL(trimmed);
+    let urlToValidate = trimmed;
+    if (!trimmed.match(/^https?:\/\//i)) {
+      urlToValidate = `https://${trimmed}`;
+    }
+    new URL(urlToValidate);
     return undefined;
   } catch {
     return 'Please enter a valid URL';
@@ -283,6 +284,38 @@ export default function PreviewScreen() {
     setErrors({}); // Clear errors when data changes
   }, [params.eventData, params.posterImageUri]);
 
+  // Check if form is valid without setting errors (for button state)
+  const checkFormValid = (): boolean => {
+    const titleError = validateTitle(title);
+    if (titleError) return false;
+
+    const datesError = validateDates(selectedDates);
+    if (datesError) return false;
+
+    const costError = validatePrice(cost);
+    if (costError) return false;
+
+    const urlError = validateURL(websiteUrl);
+    if (urlError) return false;
+
+    const descError = validateDescription(description);
+    if (descError) return false;
+
+    const orgError = validateOrganizationName(organizationName);
+    if (orgError) return false;
+
+    const xError = validateSocialHandle(x, 'X');
+    if (xError) return false;
+
+    const instagramError = validateSocialHandle(instagram, 'Instagram');
+    if (instagramError) return false;
+
+    const facebookError = validateSocialHandle(facebook, 'Facebook');
+    if (facebookError) return false;
+
+    return true;
+  };
+
   // Validate all fields
   const validateForm = (): boolean => {
     const newErrors: ValidationErrors = {};
@@ -395,12 +428,23 @@ export default function PreviewScreen() {
       if (instagram.trim()) socialMediaHandles.instagram = instagram.trim();
       if (facebook.trim()) socialMediaHandles.facebook = facebook.trim();
 
+      // Format website URL - prepend https:// if no protocol is present
+      let formattedWebsiteUrl: string | undefined;
+      if (websiteUrl.trim()) {
+        const trimmedUrl = websiteUrl.trim();
+        if (trimmedUrl.match(/^https?:\/\//i)) {
+          formattedWebsiteUrl = trimmedUrl;
+        } else {
+          formattedWebsiteUrl = `https://${trimmedUrl}`;
+        }
+      }
+
       const eventData: Omit<Event, 'id' | 'userId' | 'createdAt' | 'updatedAt'> = {
         title: title.trim(),
         dates,
         price,
         address: address.trim() || undefined,
-        websiteUrl: websiteUrl.trim() || undefined,
+        websiteUrl: formattedWebsiteUrl,
         socialMediaHandles: Object.keys(socialMediaHandles).length > 0 ? socialMediaHandles : undefined,
         description: description.trim() || undefined,
         organizationName: organizationName.trim() || undefined,
@@ -426,7 +470,8 @@ export default function PreviewScreen() {
   const errorColor = '#EF4444';
 
   // Check if form is valid for submit button state
-  const isFormValid = title.trim() && selectedDates.length > 0 && Object.keys(errors).length === 0;
+  // Use checkFormValid to ensure button state updates when errors are fixed
+  const isFormValid = title.trim() && selectedDates.length > 0 && checkFormValid();
 
   // Helper functions for managing dates
   const addDate = () => {
@@ -478,7 +523,10 @@ export default function PreviewScreen() {
             flexDirection: 'row',
             gap: 12,
           }}>
-            <Pressable onPress={() => router.back()}>
+            <Pressable onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.back();
+            }}>
               {({ pressed }) => (
                 <GlassView
                   style={{
@@ -596,7 +644,10 @@ export default function PreviewScreen() {
                   Event Dates *
                 </Text>
                 <TouchableOpacity
-                  onPress={addDate}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    addDate();
+                  }}
                   activeOpacity={0.7}
                   style={{
                     paddingHorizontal: 12,
@@ -614,6 +665,7 @@ export default function PreviewScreen() {
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <TouchableOpacity
                       onPress={() => {
+                        Haptics.selectionAsync();
                         setEditingDateIndex(index);
                         setIsDatePickerOpen(true);
                       }}
@@ -641,7 +693,10 @@ export default function PreviewScreen() {
                     </TouchableOpacity>
                     {selectedDates.length > 1 && (
                       <TouchableOpacity
-                        onPress={() => removeDate(index)}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                          removeDate(index);
+                        }}
                         activeOpacity={0.7}
                         style={{
                           padding: 8,
@@ -680,6 +735,7 @@ export default function PreviewScreen() {
               <View style={{ gap: 12 }}>
                 <TouchableOpacity
                   onPress={() => {
+                    Haptics.selectionAsync();
                     setIsEditingStartTime(true);
                     setIsTimePickerOpen(true);
                   }}
@@ -717,6 +773,7 @@ export default function PreviewScreen() {
 
                 <TouchableOpacity
                   onPress={() => {
+                    Haptics.selectionAsync();
                     setIsEditingEndTime(true);
                     setIsTimePickerOpen(true);
                   }}
@@ -1186,7 +1243,10 @@ export default function PreviewScreen() {
             borderTopColor: colorScheme === 'dark' ? '#1F2937' : '#E5E7EB',
           }}>
             <TouchableOpacity
-              onPress={handleSave}
+              onPress={() => {
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                handleSave();
+              }}
               disabled={isSaving || !isFormValid}
               activeOpacity={0.85}
               style={{

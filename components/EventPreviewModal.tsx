@@ -1,6 +1,7 @@
 import { BottomSheet, Host } from '@expo/ui/swift-ui';
 import { Ionicons } from '@expo/vector-icons';
 import { GlassView } from 'expo-glass-effect';
+import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useEffect, useState } from 'react';
 import {
@@ -241,7 +242,10 @@ export default function EventPreviewModal({
         borderBottomWidth: 1,
         borderBottomColor: 'rgba(255, 255, 255, 0.1)',
       }}>
-        <TouchableOpacity onPress={onClose} disabled={isSaving}>
+        <TouchableOpacity onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          onClose();
+        }} disabled={isSaving}>
           <Ionicons name="close" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '600' }}>
@@ -642,7 +646,10 @@ export default function EventPreviewModal({
         right: 20,
       }}>
         <TouchableOpacity
-          onPress={handleSave}
+          onPress={() => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            handleSave();
+          }}
           disabled={isSaving}
           activeOpacity={0.7}
         >

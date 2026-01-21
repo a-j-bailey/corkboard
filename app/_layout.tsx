@@ -24,6 +24,7 @@ function RootStack() {
           name="event/[id]"
           options={{
             presentation: 'modal',
+            headerShown: false,
           }}
         />
         <Stack.Screen

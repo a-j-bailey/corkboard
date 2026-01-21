@@ -18,6 +18,7 @@ export const Colors = {
     tabIconSelected: tintColorLight,
 
     green: "#66800B",
+    bookmarkGold: "#FFD700",
   },
   dark: {
     text: '#ECEDEE',
@@ -28,6 +29,7 @@ export const Colors = {
     tabIconSelected: tintColorDark,
 
     green: "#879A39",
+    bookmarkGold: "#FFD700",
   },
 };
 

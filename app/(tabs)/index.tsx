@@ -1,6 +1,7 @@
 import { Image } from 'expo-image';
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { FlatList, Platform, RefreshControl, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/theme';
@@ -12,7 +13,6 @@ export default function HomeScreen() {
   const { colorScheme } = useTheme();
   const insets = useSafeAreaInsets();
   const { events, refreshEvents, loading } = useEvents();
-  const [rotations, setRotations] = useState<number[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
 
@@ -28,15 +28,24 @@ export default function HomeScreen() {
   const backgroundColor = Colors[colorScheme].background;
   const borderColor = '#f5f5f5'; // Slightly off-white border for both light and dark mode
 
-  useEffect(() => {
-    // Generate random rotation values between -5 and 5 degrees for each event
-    const rotationValues = events.map(() => 
-      (Math.random() * 10 - 5) // Random value between -5 and 5
-    );
-    setRotations(rotationValues);
+  // Generate random rotation values synchronously when events change
+  // Use a seeded random function based on event ID to ensure consistent rotation per event
+  const rotations = useMemo(() => {
+    return events.map((event) => {
+      // Use event ID as seed for consistent rotation per event
+      let hash = 0;
+      for (let i = 0; i < event.id.length; i++) {
+        hash = ((hash << 5) - hash) + event.id.charCodeAt(i);
+        hash = hash & hash; // Convert to 32-bit integer
+      }
+      // Generate rotation between -5 and 5 degrees using seeded value
+      const normalized = (Math.abs(hash) % 1000) / 1000;
+      return (normalized * 10 - 5); // Random value between -5 and 5
+    });
   }, [events]);
 
   const handleCardPress = (event: Event) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.push(`/event/${event.id}`);
   };
 

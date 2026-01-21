@@ -31,7 +31,7 @@ interface DatabaseEvent {
 /**
  * Converts a database event to the Event interface
  */
-function dbEventToEvent(dbEvent: DatabaseEvent): Event {
+export function dbEventToEvent(dbEvent: DatabaseEvent): Event {
   // Parse dates if it's a string (JSONB can be returned as string)
   let dates: EventDate[] = [];
   if (typeof dbEvent.dates === 'string') {
@@ -227,8 +227,9 @@ export async function createEvent(
 
 /**
  * Gets all events from the database
+ * @param userId Optional user ID to include bookmark status
  */
-export async function getEvents(): Promise<Event[]> {
+export async function getEvents(userId?: string): Promise<Event[]> {
   try {
     const { data, error } = await supabase
       .from('events')
@@ -239,7 +240,20 @@ export async function getEvents(): Promise<Event[]> {
       throw error;
     }
 
-    return (data as DatabaseEvent[]).map(dbEventToEvent);
+    const events = (data as DatabaseEvent[]).map(dbEventToEvent);
+
+    // If userId is provided, fetch bookmark status
+    if (userId) {
+      const { getBookmarkedEventIds } = await import('./bookmarkService');
+      const bookmarkedIds = await getBookmarkedEventIds(userId);
+      
+      // Add isBookmarked property to each event
+      events.forEach((event) => {
+        (event as Event & { isBookmarked?: boolean }).isBookmarked = bookmarkedIds.has(event.id);
+      });
+    }
+
+    return events;
   } catch (error) {
     console.error('[EventService] Error fetching events:', error);
     throw error;

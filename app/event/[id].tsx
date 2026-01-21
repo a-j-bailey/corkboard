@@ -1,9 +1,10 @@
 import { Button, ContextMenu, Host } from '@expo/ui/swift-ui';
 import { Ionicons } from '@expo/vector-icons';
 import { GlassView } from 'expo-glass-effect';
+import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
-import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useMemo } from 'react';
 import {
@@ -19,17 +20,19 @@ import { XSymbol } from '../../components/XSymbol';
 import { Colors } from '../../constants/theme';
 import { useEvents } from '../../contexts/EventContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useUser } from '../../contexts/UserContext';
 import { formatDateOnly, formatEventDates, formatTime } from '../../utils/dateFormatter';
 
 export default function EventDetailRoute() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const router = useRouter();
-  const navigation = useNavigation();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { colorScheme } = useTheme();
-  const { events, refreshEvents, loading } = useEvents();
+  const { events, refreshEvents, loading, toggleBookmark } = useEvents();
+  const { user } = useUser();
   const textColor = Colors[colorScheme].text;
+  const bookmarkGoldColor = Colors[colorScheme].bookmarkGold;
   const imageBgColor = colorScheme === 'dark' ? '#1F1F1F' : '#E5E7EB';
 
   const event = useMemo(
@@ -43,24 +46,26 @@ export default function EventDetailRoute() {
     }
   }, [event, id, loading, refreshEvents]);
 
-  // Hide the default header
-  useEffect(() => {
-    navigation.setOptions({
-      headerShown: false,
-    });
-  }, [navigation]);
-
-  const handleBookmark = () => {
-    // Functionality to be implemented later
-    console.log('Bookmark pressed');
+  const handleBookmark = async () => {
+    if (!user || !event) return;
+    
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      await toggleBookmark(event.id);
+    } catch (error) {
+      console.error('Error toggling bookmark:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
   };
 
   const handleReport = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     // Report functionality
     console.log('Report event');
   };
 
   const handleOpenURL = async (url: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
       // Ensure URL has protocol
       let formattedUrl = url;
@@ -76,6 +81,7 @@ export default function EventDetailRoute() {
   const handleOpenLocation = async () => {
     if (!event) return;
 
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
       let mapsUrl: string;
 
@@ -139,7 +145,10 @@ export default function EventDetailRoute() {
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
         <Text style={{ color: textColor, fontSize: 16 }}>Missing event id.</Text>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.back();
+          }}
           activeOpacity={0.7}
           style={{
             marginTop: 16,
@@ -169,7 +178,10 @@ export default function EventDetailRoute() {
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
         <Text style={{ color: textColor, fontSize: 16 }}>Event not found.</Text>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.back();
+          }}
           activeOpacity={0.7}
           style={{
             marginTop: 16,
@@ -209,25 +221,31 @@ export default function EventDetailRoute() {
           gap: 12,
         }}
       >
-        {/* Bookmark Button */}
-        <TouchableOpacity
-          onPress={handleBookmark}
-          activeOpacity={0.7}
-        >
-          <GlassView
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 22,
-              justifyContent: 'center',
-              alignItems: 'center',
-              overflow: 'hidden',
-            }}
-            glassEffectStyle="regular"
+        {/* Bookmark Button - Only show if user is signed in */}
+        {user && (
+          <TouchableOpacity
+            onPress={handleBookmark}
+            activeOpacity={0.7}
           >
-            <Ionicons name="bookmark-outline" size={24} color={textColor} />
-          </GlassView>
-        </TouchableOpacity>
+            <GlassView
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                justifyContent: 'center',
+                alignItems: 'center',
+                overflow: 'hidden',
+              }}
+              glassEffectStyle="regular"
+            >
+              <Ionicons 
+                name={event?.isBookmarked ? "bookmark" : "bookmark-outline"} 
+                size={24} 
+                color={event?.isBookmarked ? bookmarkGoldColor : textColor} 
+              />
+            </GlassView>
+          </TouchableOpacity>
+        )}
 
         {/* More Button with Dropdown */}
         <Host style={{ width: 44, height: 44, borderRadius: 22, overflow: 'hidden' }}>
@@ -236,6 +254,7 @@ export default function EventDetailRoute() {
               <Button
                 systemImage="exclamationmark.triangle"
                 onPress={handleReport}
+                role="destructive"
               >
                 Report
               </Button>

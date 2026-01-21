@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { GlassView } from 'expo-glass-effect';
+import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -118,6 +119,7 @@ export default function AddScreen() {
   };
 
   const scanDocument = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
       setIsProcessing(true);
       
@@ -201,6 +203,7 @@ export default function AddScreen() {
   };
 
   const openPreviewForTesting = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     // Temporary testing function - opens preview with empty data
     router.push({
       pathname: '/add/preview',
@@ -265,6 +268,7 @@ export default function AddScreen() {
                 borderRadius: 8,
               }}
               onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 setCapturedImageUri(null);
               }}
             >
