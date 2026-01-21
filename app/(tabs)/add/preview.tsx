@@ -1,3 +1,4 @@
+import { BottomSheet, DateTimePicker, Host, Switch, TextField } from '@expo/ui/swift-ui';
 import { Ionicons } from '@expo/vector-icons';
 import { GlassView } from 'expo-glass-effect';
 import { Image } from 'expo-image';
@@ -6,25 +7,138 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
   ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  useWindowDimensions,
+  useWindowDimensions
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { XSymbol } from '../../../components/XSymbol';
 import { Colors } from '../../../constants/theme';
-import { Event, SocialMediaHandles, useEvents } from '../../../contexts/EventContext';
+import { Event, EventDate, SocialMediaHandles, useEvents } from '../../../contexts/EventContext';
 import { useTheme } from '../../../contexts/ThemeContext';
-import { parseDates, parsePriceToNumber } from '../../../services/eventParser';
+import { parsePriceToNumber } from '../../../services/eventParser';
 import { geocodeLocation } from '../../../services/geocodingService';
 import { formatDateOnly, formatTime } from '../../../utils/dateFormatter';
 
+// Validation error types
+interface ValidationErrors {
+  title?: string;
+  date?: string;
+  time?: string;
+  address?: string;
+  cost?: string;
+  websiteUrl?: string;
+  description?: string;
+  organizationName?: string;
+  x?: string;
+  instagram?: string;
+  facebook?: string;
+}
+
+// Validation helper functions
+const validateTitle = (title: string): string | undefined => {
+  const trimmed = title.trim();
+  if (!trimmed) {
+    return 'Event title is required';
+  }
+  if (trimmed.length > 200) {
+    return 'Event title must be less than 200 characters';
+  }
+  return undefined;
+};
+
+const validateDates = (dates: Date[]): string | undefined => {
+  if (!dates || dates.length === 0) {
+    return 'At least one event date is required';
+  }
+  for (const date of dates) {
+    if (!date || isNaN(date.getTime())) {
+      return 'Please select valid dates';
+    }
+  }
+  return undefined;
+};
+
+const validateTime = (time: Date | null): string | undefined => {
+  if (!time) {
+    return undefined; // Time is optional
+  }
+  if (isNaN(time.getTime())) {
+    return 'Please select a valid time';
+  }
+  return undefined;
+};
+
+const validateURL = (url: string): string | undefined => {
+  const trimmed = url.trim();
+  if (!trimmed) {
+    return undefined; // URL is optional
+  }
+  // Check if URL starts with http:// or https://
+  if (!trimmed.match(/^https?:\/\//i)) {
+    return 'URL must start with http:// or https://';
+  }
+  // Basic URL validation
+  try {
+    new URL(trimmed);
+    return undefined;
+  } catch {
+    return 'Please enter a valid URL';
+  }
+};
+
+const validatePrice = (cost: string): string | undefined => {
+  const trimmed = cost.trim();
+  if (!trimmed) {
+    return undefined; // Price is optional
+  }
+  const price = parsePriceToNumber(trimmed);
+  if (price === null && trimmed.toLowerCase() !== 'free') {
+    return 'Please enter a valid price (e.g., $25 or Free)';
+  }
+  return undefined;
+};
+
+const validateDescription = (description: string): string | undefined => {
+  const trimmed = description.trim();
+  if (trimmed.length > 2000) {
+    return 'Description must be less than 2000 characters';
+  }
+  return undefined;
+};
+
+const validateOrganizationName = (name: string): string | undefined => {
+  const trimmed = name.trim();
+  if (trimmed.length > 100) {
+    return 'Organization name must be less than 100 characters';
+  }
+  return undefined;
+};
+
+const validateSocialHandle = (handle: string, platform: string): string | undefined => {
+  const trimmed = handle.trim();
+  if (!trimmed) {
+    return undefined; // Social handles are optional
+  }
+  // Basic validation - no spaces, reasonable length
+  if (trimmed.includes(' ')) {
+    return `${platform} handle cannot contain spaces`;
+  }
+  if (trimmed.length > 50) {
+    return `${platform} handle must be less than 50 characters`;
+  }
+  return undefined;
+};
+
 export default function PreviewScreen() {
   const router = useRouter();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { addEvent } = useEvents();
   const { colorScheme } = useTheme();
@@ -51,45 +165,47 @@ export default function PreviewScreen() {
   
   const posterImageUri = params.posterImageUri || undefined;
 
-  // Helper function to extract date and time strings from EventDate array or old format
-  const extractDateAndTime = (eventData: Partial<Event>): { date: string; time: string } => {
-    // Check if we have the new dates array format
+  // Helper function to extract initial dates from EventDate array
+  const extractInitialDates = (eventData: Partial<Event>): Date[] => {
+    if (eventData.dates && eventData.dates.length > 0) {
+      return eventData.dates.map(dateItem => {
+        const date = new Date(dateItem.start);
+        if (!isNaN(date.getTime())) {
+          return date;
+        }
+        return new Date();
+      }).filter(Boolean);
+    }
+    // Default to today if no date provided
+    return [new Date()];
+  };
+
+  // Helper function to extract initial start time from EventDate array
+  const extractInitialStartTime = (eventData: Partial<Event>): Date | null => {
     if (eventData.dates && eventData.dates.length > 0) {
       const firstDate = new Date(eventData.dates[0].start);
       if (!isNaN(firstDate.getTime())) {
-        const dateStr = firstDate.toISOString().split('T')[0]; // YYYY-MM-DD
-        let timeStr = '';
-        
-        // Extract time if present
-        if (firstDate.getHours() !== 0 || firstDate.getMinutes() !== 0) {
-          const hours = firstDate.getHours();
-          const minutes = firstDate.getMinutes();
-          const ampm = hours >= 12 ? 'PM' : 'AM';
-          const displayHours = hours % 12 || 12;
-          timeStr = `${displayHours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+        // Check if time is set (not midnight UTC)
+        const utcHours = firstDate.getUTCHours();
+        const utcMinutes = firstDate.getUTCMinutes();
+        if (utcHours !== 0 || utcMinutes !== 0) {
+          // Use local time from the date
+          return firstDate;
         }
-        
-        // If there's an end time, append it
-        if (eventData.dates[0].end) {
-          const endDate = new Date(eventData.dates[0].end);
-          if (!isNaN(endDate.getTime())) {
-            const endHours = endDate.getHours();
-            const endMinutes = endDate.getMinutes();
-            const endAmpm = endHours >= 12 ? 'PM' : 'AM';
-            const endDisplayHours = endHours % 12 || 12;
-            timeStr += ` - ${endDisplayHours}:${endMinutes.toString().padStart(2, '0')} ${endAmpm}`;
-          }
-        }
-        
-        return { date: dateStr, time: timeStr };
       }
     }
-    
-    // Fall back to old format
-    return {
-      date: (eventData as any).date || '',
-      time: (eventData as any).time || '',
-    };
+    return null;
+  };
+
+  // Helper function to extract initial end time from EventDate array
+  const extractInitialEndTime = (eventData: Partial<Event>): Date | null => {
+    if (eventData.dates && eventData.dates.length > 0 && eventData.dates[0].end) {
+      const endDate = new Date(eventData.dates[0].end);
+      if (!isNaN(endDate.getTime())) {
+        return endDate;
+      }
+    }
+    return null;
   };
 
   // Helper function to extract price string from number or old format
@@ -101,20 +217,22 @@ export default function PreviewScreen() {
         return `$${eventData.price}`;
       }
     }
-    return (eventData as any).cost || '';
+    return '';
   };
 
-  const initialDateAndTime = extractDateAndTime(initialEventData);
+  const initialDates = extractInitialDates(initialEventData);
+  const initialStartTime = extractInitialStartTime(initialEventData);
+  const initialEndTime = extractInitialEndTime(initialEventData);
   const initialPrice = extractPriceString(initialEventData);
 
-  // Store the original dates array if it exists (for multiple dates display)
-  const [originalDates, setOriginalDates] = useState(initialEventData.dates || []);
-
+  // Form state
   const [title, setTitle] = useState(initialEventData.title || '');
-  const [date, setDate] = useState(initialDateAndTime.date);
-  const [time, setTime] = useState(initialDateAndTime.time);
+  const [selectedDates, setSelectedDates] = useState<Date[]>(initialDates);
+  const [startTime, setStartTime] = useState<Date | null>(initialStartTime);
+  const [endTime, setEndTime] = useState<Date | null>(initialEndTime);
   const [address, setAddress] = useState(initialEventData.address || '');
   const [cost, setCost] = useState(initialPrice);
+  const [isFree, setIsFree] = useState(initialPrice === 'Free' || initialEventData.price === 0);
   const [websiteUrl, setWebsiteUrl] = useState(initialEventData.websiteUrl || '');
   const [description, setDescription] = useState(initialEventData.description || '');
   const [organizationName, setOrganizationName] = useState(initialEventData.organizationName || '');
@@ -122,9 +240,24 @@ export default function PreviewScreen() {
   const [instagram, setInstagram] = useState(initialEventData.socialMediaHandles?.instagram || '');
   const [facebook, setFacebook] = useState(initialEventData.socialMediaHandles?.facebook || '');
 
+  // Validation errors state
+  const [errors, setErrors] = useState<ValidationErrors>({});
+
+  // Bottom sheet state
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [isTimePickerOpen, setIsTimePickerOpen] = useState(false);
+  const [editingDateIndex, setEditingDateIndex] = useState<number | null>(null);
+  const [isEditingStartTime, setIsEditingStartTime] = useState(false);
+  const [isEditingEndTime, setIsEditingEndTime] = useState(false);
+
+  // Store the original dates array if it exists (for multiple dates display)
+  const [originalDates, setOriginalDates] = useState(initialEventData.dates || []);
+
   // Update state when params change
   useEffect(() => {
-    const dateAndTime = extractDateAndTime(initialEventData);
+    const dates = extractInitialDates(initialEventData);
+    const startTime = extractInitialStartTime(initialEventData);
+    const endTime = extractInitialEndTime(initialEventData);
     const priceStr = extractPriceString(initialEventData);
     
     // Store original dates array if it exists
@@ -135,51 +268,107 @@ export default function PreviewScreen() {
     }
     
     setTitle(initialEventData.title || '');
-    setDate(dateAndTime.date);
-    setTime(dateAndTime.time);
+    setSelectedDates(dates);
+    setStartTime(startTime);
+    setEndTime(endTime);
     setAddress(initialEventData.address || '');
     setCost(priceStr);
+    setIsFree(priceStr === 'Free' || initialEventData.price === 0);
     setWebsiteUrl(initialEventData.websiteUrl || '');
     setDescription(initialEventData.description || '');
     setOrganizationName(initialEventData.organizationName || '');
     setX(initialEventData.socialMediaHandles?.x || '');
     setInstagram(initialEventData.socialMediaHandles?.instagram || '');
     setFacebook(initialEventData.socialMediaHandles?.facebook || '');
+    setErrors({}); // Clear errors when data changes
   }, [params.eventData, params.posterImageUri]);
 
+  // Validate all fields
+  const validateForm = (): boolean => {
+    const newErrors: ValidationErrors = {};
+
+    const titleError = validateTitle(title);
+    if (titleError) newErrors.title = titleError;
+
+    const datesError = validateDates(selectedDates);
+    if (datesError) newErrors.date = datesError;
+
+    const addressError = address.trim() ? undefined : undefined; // Address is optional
+    // Could add address format validation here
+
+    const costError = validatePrice(cost);
+    if (costError) newErrors.cost = costError;
+
+    const urlError = validateURL(websiteUrl);
+    if (urlError) newErrors.websiteUrl = urlError;
+
+    const descError = validateDescription(description);
+    if (descError) newErrors.description = descError;
+
+    const orgError = validateOrganizationName(organizationName);
+    if (orgError) newErrors.organizationName = orgError;
+
+    const xError = validateSocialHandle(x, 'X');
+    if (xError) newErrors.x = xError;
+
+    const instagramError = validateSocialHandle(instagram, 'Instagram');
+    if (instagramError) newErrors.instagram = instagramError;
+
+    const facebookError = validateSocialHandle(facebook, 'Facebook');
+    if (facebookError) newErrors.facebook = facebookError;
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSave = async () => {
-    if (!title.trim()) {
-      Alert.alert('Error', 'Please enter an event title');
+    // Validate form before submission
+    if (!validateForm()) {
+      Alert.alert('Validation Error', 'Please fix the errors in the form before submitting.');
       return;
     }
 
-    if (!date.trim()) {
-      Alert.alert('Error', 'Please enter an event date');
+    if (selectedDates.length === 0) {
+      Alert.alert('Error', 'Please select at least one event date');
       return;
     }
 
     setIsSaving(true);
 
     try {
-      // Use original dates array if available, otherwise parse from date/time strings
-      let dates: Array<{start: string, end?: string}>;
-      if (originalDates.length > 0) {
-        // Use the original dates array from the extracted data
-        dates = originalDates;
-        console.log('[PreviewScreen] Using original dates array:', dates.length, 'dates');
-      } else {
-        // Parse dates from the date/time input fields
-        dates = parseDates(date.trim(), time.trim() || undefined);
-        if (dates.length === 0) {
-          Alert.alert('Error', 'Could not parse event date. Please check the format.');
-          setIsSaving(false);
-          return;
+      // Combine dates and times into EventDate format
+      const dates: EventDate[] = selectedDates.map(date => {
+        const eventDate = new Date(date);
+        
+        // Set start time if provided
+        if (startTime) {
+          eventDate.setHours(startTime.getHours(), startTime.getMinutes(), 0, 0);
+        } else {
+          // Date-only event, use UTC midnight
+          eventDate.setHours(0, 0, 0, 0);
         }
-        console.log('[PreviewScreen] Parsed dates from input:', dates.length, 'dates');
-      }
+        
+        const eventDateItem: EventDate = {
+          start: eventDate.toISOString(),
+        };
+        
+        // Add end time if provided
+        if (endTime) {
+          const endDate = new Date(date);
+          endDate.setHours(endTime.getHours(), endTime.getMinutes(), 0, 0);
+          eventDateItem.end = endDate.toISOString();
+        }
+        
+        return eventDateItem;
+      });
 
-      // Parse price to number
-      const price = parsePriceToNumber(cost.trim() || undefined);
+      // Parse price to number - if isFree is true, always set to 0, otherwise parse the cost string
+      let price: number | null;
+      if (isFree) {
+        price = 0; // Free events always save as 0
+      } else {
+        price = parsePriceToNumber(cost.trim() || undefined);
+      }
 
       // Geocode location if provided
       let locationName: string | undefined;
@@ -234,266 +423,346 @@ export default function PreviewScreen() {
   };
 
   const placeholderColor = colorScheme === 'dark' ? '#6B7280' : '#9CA3AF';
+  const errorColor = '#EF4444';
+
+  // Check if form is valid for submit button state
+  const isFormValid = title.trim() && selectedDates.length > 0 && Object.keys(errors).length === 0;
+
+  // Helper functions for managing dates
+  const addDate = () => {
+    // Default new date to previous date + 1 day, or today if no dates exist
+    let newDate: Date;
+    if (selectedDates.length > 0) {
+      const lastDate = selectedDates[selectedDates.length - 1];
+      newDate = new Date(lastDate);
+      newDate.setDate(newDate.getDate() + 1);
+    } else {
+      newDate = new Date();
+    }
+    setSelectedDates([...selectedDates, newDate]);
+    setEditingDateIndex(selectedDates.length); // Set to the new date's index
+    setIsDatePickerOpen(true);
+  };
+
+  const removeDate = (index: number) => {
+    if (selectedDates.length > 1) {
+      setSelectedDates(selectedDates.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateDate = (index: number, newDate: Date) => {
+    const updatedDates = [...selectedDates];
+    updatedDates[index] = newDate;
+    setSelectedDates(updatedDates);
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor }}>
-      <ScrollView
+      <KeyboardAvoidingView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
-        showsVerticalScrollIndicator={false}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        <View style={{
-          position: 'absolute',
-          top: insets.top + 12,
-          right: 16,
-          zIndex: 1,
-          flexDirection: 'row',
-          gap: 12,
-        }}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            activeOpacity={0.7}
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: Colors[colorScheme].background,
-            }}
-          >
-            <Ionicons name="close" size={22} color={textColor} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Poster Image */}
-        {posterImageUri ? (
-          <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
-            <View style={{
-              width: '100%',
-              aspectRatio: 2 / 3,
-              borderRadius: 16,
-              overflow: 'hidden',
-              backgroundColor: colorScheme === 'dark' ? '#1F1F1F' : '#E5E7EB',
-            }}>
-              <Image
-                source={{ uri: posterImageUri }}
-                style={{ width: '100%', height: '100%' }}
-                contentFit="cover"
-              />
-            </View>
-          </View>
-        ) : (
-          <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
-            <GlassView
-              style={{
-                borderRadius: 16,
-                padding: 16,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              glassEffectStyle="regular"
-            >
-              <Text style={{ color: textColor, opacity: 0.6 }}>
-                No poster image available
-              </Text>
-            </GlassView>
-          </View>
-        )}
-
-        {/* Title */}
-        <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
-          <TextInput
-            style={{
-              color: textColor,
-              fontSize: 28,
-              fontWeight: '700',
-              marginBottom: 12,
-              textAlign: 'center',
-            }}
-            value={title}
-            onChangeText={setTitle}
-            placeholder="Event Title"
-            placeholderTextColor={placeholderColor}
-            editable={!isSaving}
-          />
-        </View>
-
-        {/* Date and Time */}
-        <View style={{ paddingHorizontal: 20 }}>
-          <TextInput
-            style={{
-              color: textColor,
-              fontSize: 16,
-              fontWeight: '500',
-              textAlign: 'center',
-              marginBottom: 8,
-            }}
-            value={date}
-            onChangeText={setDate}
-            placeholder="Event Date(s)"
-            placeholderTextColor={placeholderColor}
-            editable={!isSaving}
-          />
-          <TextInput
-            style={{
-              color: textColor,
-              fontSize: 16,
-              fontWeight: '400',
-              textAlign: 'center',
-              marginBottom: 8,
-            }}
-            value={time}
-            onChangeText={setTime}
-            placeholder="Time"
-            placeholderTextColor={placeholderColor}
-            editable={!isSaving}
-          />
-        </View>
-
-        {/* Location - Centered */}
-        {address && (
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 100, paddingTop: insets.top }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="never"
+          keyboardDismissMode="on-drag"
+        >
           <View style={{
-            alignItems: 'center',
-            marginBottom: 12,
+            position: 'absolute',
+            top: 16,
+            right: 16,
+            zIndex: 1,
+            flexDirection: 'row',
+            gap: 12,
           }}>
-            <TextInput
-              style={{
-                color: textColor,
-                fontSize: 18,
-                fontWeight: '400',
-                textAlign: 'center',
-              }}
-              value={address}
-              onChangeText={setAddress}
-              placeholder="Location"
-              placeholderTextColor={placeholderColor}
-              editable={!isSaving}
-              multiline
-            />
-          </View>
-        )}
-
-        {/* Cost - Centered */}
-          {cost && (
-            <View style={{
-              alignItems: 'center',
-              marginBottom: 16,
-            }}>
-              <TextInput
-                style={{
-                  color: textColor,
-                  fontSize: 18,
-                  fontWeight: '600',
-                  textAlign: 'center',
-                }}
-                value={cost}
-                onChangeText={setCost}
-                placeholder="Cost"
-                placeholderTextColor={placeholderColor}
-                editable={!isSaving}
-              />
-              {cost && (() => {
-                const price = parsePriceToNumber(cost);
-                if (price === 0) {
-                  return (
-                    <View style={{
-                      backgroundColor: Colors[colorScheme].green,
-                      paddingHorizontal: 12,
-                      paddingVertical: 6,
-                      borderRadius: 999,
-                      marginTop: 6,
-                    }}>
-                      <Text style={{
-                        color: Colors[colorScheme].background,
-                        fontSize: 14,
-                        fontWeight: '700',
-                      }}>
-                        Free
-                      </Text>
-                    </View>
-                  );
-                }
-                if (price === null) return null;
-                return (
-                  <Text style={{
-                    color: textColor,
-                    fontSize: 14,
-                    opacity: 0.7,
-                    marginTop: 4,
-                  }}>
-                    {`$${price}`}
-                  </Text>
-                );
-              })()}
-            </View>
-          )}
-
-        {/* Multiple Dates Card - Show above details if more than one date */}
-        {(() => {
-          // Use original dates array if available, otherwise parse from date/time strings
-          const datesToDisplay = originalDates.length > 0 ? originalDates : parseDates(date || '', time || undefined);
-          const hasMultipleDates = datesToDisplay.length > 1;
-          
-          if (hasMultipleDates) {
-            return (
-              <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
+            <Pressable onPress={() => router.back()}>
+              {({ pressed }) => (
                 <GlassView
                   style={{
+                    width: 40,
+                    height: 40,
                     borderRadius: 20,
-                    padding: 20,
+                    alignItems: 'center',
+                    justifyContent: 'center',
                     overflow: 'hidden',
+                    opacity: pressed ? 0.7 : 1,
                   }}
                   glassEffectStyle="regular"
                 >
-                  <Text style={{
-                    color: textColor,
-                    fontSize: 14,
-                    fontWeight: '600',
-                    marginBottom: 12,
-                    opacity: 0.7,
-                  }}>
-                    Event Dates
-                  </Text>
-                  <View style={{ gap: 8 }}>
-                    {datesToDisplay.map((dateItem, index) => {
-                      const dateObj = new Date(dateItem.start);
-                      const isDateOnly = dateObj.getUTCHours() === 0 && dateObj.getUTCMinutes() === 0;
-                      
-                      return (
-                        <View key={index} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                          <Text style={{
-                            color: textColor,
-                            fontSize: 16,
-                            fontWeight: '500',
-                            flex: 1,
-                          }}>
-                            {formatDateOnly(dateObj)}
-                          </Text>
-                          {!isDateOnly && (
-                            <Text style={{
-                              color: textColor,
-                              fontSize: 14,
-                              opacity: 0.7,
-                            }}>
-                              {formatTime(dateObj)}
-                              {dateItem.end && ` - ${formatTime(new Date(dateItem.end))}`}
-                            </Text>
-                          )}
-                        </View>
-                      );
-                    })}
-                  </View>
+                  <Ionicons name="close" size={22} color={textColor} />
                 </GlassView>
-              </View>
-            );
-          }
-          return null;
-        })()}
+              )}
+            </Pressable>
+          </View>
 
-        <View style={{ paddingHorizontal: 20, paddingTop: 20, gap: 16 }}>
-          {/* Location Card */}
-          {(address || originalDates.length > 0) && (
+          {/* Poster Image */}
+          {posterImageUri ? (
+            <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
+              <View style={{
+                width: '100%',
+                aspectRatio: 2 / 3,
+                borderRadius: 16,
+                overflow: 'hidden',
+                backgroundColor: colorScheme === 'dark' ? '#1F1F1F' : '#E5E7EB',
+              }}>
+                <Image
+                  source={{ uri: posterImageUri }}
+                  style={{ width: '100%', height: '100%' }}
+                  contentFit="cover"
+                />
+              </View>
+            </View>
+          ) : (
+            <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
+              <GlassView
+                style={{
+                  borderRadius: 16,
+                  padding: 16,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                glassEffectStyle="regular"
+              >
+                <Text style={{ color: textColor, opacity: 0.6 }}>
+                  No poster image available
+                </Text>
+              </GlassView>
+            </View>
+          )}
+
+          {/* Form Fields */}
+          <View style={{ paddingHorizontal: 20, paddingTop: 20, gap: 20 }}>
+            {/* Title Field */}
+            <GlassView
+              style={{
+                borderRadius: 20,
+                padding: 20,
+                overflow: 'hidden',
+              }}
+              glassEffectStyle="regular"
+            >
+              <Text style={{
+                color: textColor,
+                fontSize: 14,
+                fontWeight: '600',
+                marginBottom: 12,
+                opacity: 0.7,
+              }}>
+                Event Title *
+              </Text>
+              <Host matchContents>
+                <TextField
+                  defaultValue={title}
+                  onChangeText={(text) => {
+                    setTitle(text);
+                    // Clear error when user starts typing
+                    if (errors.title) {
+                      setErrors(prev => ({ ...prev, title: undefined }));
+                    }
+                  }}
+                  placeholder="Enter event title"
+                />
+              </Host>
+              {errors.title && (
+                <Text style={{
+                  color: errorColor,
+                  fontSize: 12,
+                  marginTop: 8,
+                }}>
+                  {errors.title}
+                </Text>
+              )}
+            </GlassView>
+
+            {/* Date and Time Fields */}
+            <GlassView
+              style={{
+                borderRadius: 20,
+                padding: 20,
+                overflow: 'hidden',
+              }}
+              glassEffectStyle="regular"
+            >
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <Text style={{
+                  color: textColor,
+                  fontSize: 14,
+                  fontWeight: '600',
+                  opacity: 0.7,
+                }}>
+                  Event Dates *
+                </Text>
+                <TouchableOpacity
+                  onPress={addDate}
+                  activeOpacity={0.7}
+                  style={{
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: 8,
+                    backgroundColor: tintColor,
+                  }}
+                >
+                  <Ionicons name="add" size={16} color={Colors[colorScheme].text} />
+                </TouchableOpacity>
+              </View>
+              
+              {selectedDates.map((date, index) => (
+                <View key={index} style={{ marginBottom: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setEditingDateIndex(index);
+                        setIsDatePickerOpen(true);
+                      }}
+                      activeOpacity={0.7}
+                      style={{
+                        flex: 1,
+                        paddingVertical: 12,
+                        paddingHorizontal: 16,
+                        borderRadius: 12,
+                        backgroundColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
+                        borderWidth: errors.date ? 1 : 0,
+                        borderColor: errorColor,
+                      }}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Text style={{
+                          color: textColor,
+                          fontSize: 16,
+                          fontWeight: '500',
+                        }}>
+                          {formatDateOnly(date)}
+                        </Text>
+                        <Ionicons name="calendar-outline" size={20} color={textColor} style={{ opacity: 0.7 }} />
+                      </View>
+                    </TouchableOpacity>
+                    {selectedDates.length > 1 && (
+                      <TouchableOpacity
+                        onPress={() => removeDate(index)}
+                        activeOpacity={0.7}
+                        style={{
+                          padding: 8,
+                          borderRadius: 8,
+                          backgroundColor: colorScheme === 'dark' ? 'rgba(255, 0, 0, 0.2)' : 'rgba(255, 0, 0, 0.1)',
+                        }}
+                      >
+                        <Ionicons name="close" size={18} color="#EF4444" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+              ))}
+              
+              {errors.date && (
+                <Text style={{
+                  color: errorColor,
+                  fontSize: 12,
+                  marginTop: 8,
+                }}>
+                  {errors.date}
+                </Text>
+              )}
+
+              <Text style={{
+                color: textColor,
+                fontSize: 14,
+                fontWeight: '600',
+                marginTop: 20,
+                marginBottom: 12,
+                opacity: 0.7,
+              }}>
+                Event Times (Optional)
+              </Text>
+              
+              <View style={{ gap: 12 }}>
+                <TouchableOpacity
+                  onPress={() => {
+                    setIsEditingStartTime(true);
+                    setIsTimePickerOpen(true);
+                  }}
+                  activeOpacity={0.7}
+                  style={{
+                    paddingVertical: 12,
+                    paddingHorizontal: 16,
+                    borderRadius: 12,
+                    backgroundColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
+                    borderWidth: errors.time ? 1 : 0,
+                    borderColor: errorColor,
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <View>
+                      <Text style={{
+                        color: textColor,
+                        fontSize: 12,
+                        opacity: 0.7,
+                        marginBottom: 4,
+                      }}>
+                        Start Time
+                      </Text>
+                      <Text style={{
+                        color: startTime ? textColor : placeholderColor,
+                        fontSize: 16,
+                        fontWeight: startTime ? '500' : '400',
+                      }}>
+                        {startTime ? formatTime(startTime) : 'Select start time'}
+                      </Text>
+                    </View>
+                    <Ionicons name="time-outline" size={20} color={textColor} style={{ opacity: 0.7 }} />
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => {
+                    setIsEditingEndTime(true);
+                    setIsTimePickerOpen(true);
+                  }}
+                  activeOpacity={0.7}
+                  style={{
+                    paddingVertical: 12,
+                    paddingHorizontal: 16,
+                    borderRadius: 12,
+                    backgroundColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <View>
+                      <Text style={{
+                        color: textColor,
+                        fontSize: 12,
+                        opacity: 0.7,
+                        marginBottom: 4,
+                      }}>
+                        End Time
+                      </Text>
+                      <Text style={{
+                        color: endTime ? textColor : placeholderColor,
+                        fontSize: 16,
+                        fontWeight: endTime ? '500' : '400',
+                      }}>
+                        {endTime ? formatTime(endTime) : 'Select end time'}
+                      </Text>
+                    </View>
+                    <Ionicons name="time-outline" size={20} color={textColor} style={{ opacity: 0.7 }} />
+                  </View>
+                </TouchableOpacity>
+              </View>
+              
+              {errors.time && (
+                <Text style={{
+                  color: errorColor,
+                  fontSize: 12,
+                  marginTop: 8,
+                }}>
+                  {errors.time}
+                </Text>
+              )}
+            </GlassView>
+
+            {/* Location Field */}
             <GlassView
               style={{
                 borderRadius: 20,
@@ -511,25 +780,31 @@ export default function PreviewScreen() {
               }}>
                 Location
               </Text>
-              <TouchableOpacity
-                onPress={() => {}}
-                activeOpacity={0.7}
-                style={{ alignItems: 'flex-start', gap: 6 }}
-              >
+              <Host matchContents>
+                <TextField
+                  defaultValue={address}
+                  onChangeText={(text) => {
+                    setAddress(text);
+                    if (errors.address) {
+                      setErrors(prev => ({ ...prev, address: undefined }));
+                    }
+                  }}
+                  placeholder="Enter event location or address"
+                  multiline
+                />
+              </Host>
+              {errors.address && (
                 <Text style={{
-                  color: '#3B82F6',
-                  fontSize: 18,
-                  fontWeight: '500',
-                  textDecorationLine: 'underline',
+                  color: errorColor,
+                  fontSize: 12,
+                  marginTop: 8,
                 }}>
-                  {address || 'Location not set'}
+                  {errors.address}
                 </Text>
-              </TouchableOpacity>
+              )}
             </GlassView>
-          )}
 
-          {/* Host/Description Card */}
-          {(organizationName || description) && (
+            {/* Cost Field */}
             <GlassView
               style={{
                 borderRadius: 20,
@@ -538,40 +813,240 @@ export default function PreviewScreen() {
               }}
               glassEffectStyle="regular"
             >
-                {organizationName && (
-                <View style={{ marginBottom: 12 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: isFree ? 0 : 12 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <Text style={{
                     color: textColor,
                     fontSize: 14,
                     fontWeight: '600',
-                    marginBottom: 4,
                     opacity: 0.7,
                   }}>
-                    Hosted by
+                    Cost
                   </Text>
-                  <Text style={{
-                    color: textColor,
-                    fontSize: 18,
-                    fontWeight: '600',
-                  }}>
-                      {organizationName}
-                  </Text>
+                  {isFree && (
+                    <View style={{
+                      backgroundColor: Colors[colorScheme].green,
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      borderRadius: 999,
+                    }}>
+                      <Text style={{
+                        color: Colors[colorScheme].background,
+                        fontSize: 14,
+                        fontWeight: '700',
+                      }}>
+                        Free
+                      </Text>
+                    </View>
+                  )}
                 </View>
+                <Host matchContents>
+                  <Switch
+                    value={!isFree}
+                    onValueChange={(checked) => {
+                      setIsFree(!checked);
+                      if (!checked) {
+                        setCost('Free');
+                        if (errors.cost) {
+                          setErrors(prev => ({ ...prev, cost: undefined }));
+                        }
+                      } else {
+                        setCost('');
+                      }
+                    }}
+                    label="Has Price"
+                    variant="switch"
+                  />
+                </Host>
+              </View>
+              
+              {!isFree && (
+                <>
+                  <TextInput
+                    value={cost && cost !== 'Free' ? cost.replace(/[^0-9.]/g, '') : ''}
+                    onChangeText={(text) => {
+                      // Filter to only allow numbers and decimal point
+                      const numericValue = text.replace(/[^0-9.]/g, '');
+                      // Ensure only one decimal point
+                      const parts = numericValue.split('.');
+                      const filtered = parts.length > 2 
+                        ? parts[0] + '.' + parts.slice(1).join('')
+                        : numericValue;
+                      setCost(filtered);
+                      if (errors.cost) {
+                        setErrors(prev => ({ ...prev, cost: undefined }));
+                      }
+                    }}
+                    placeholder="0.00"
+                    placeholderTextColor={placeholderColor}
+                    keyboardType="decimal-pad"
+                    style={{
+                      color: textColor,
+                      fontSize: 16,
+                      paddingVertical: 12,
+                      paddingHorizontal: 16,
+                      borderRadius: 12,
+                      backgroundColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
+                      borderWidth: errors.cost ? 1 : 0,
+                      borderColor: errorColor,
+                    }}
+                  />
+                  {errors.cost && (
+                    <Text style={{
+                      color: errorColor,
+                      fontSize: 12,
+                      marginTop: 8,
+                    }}>
+                      {errors.cost}
+                    </Text>
+                  )}
+                  {cost && cost !== 'Free' && cost.trim() !== '' && (() => {
+                    const numericValue = cost.replace(/[^0-9.]/g, '');
+                    if (numericValue && !isNaN(parseFloat(numericValue))) {
+                      const price = parseFloat(numericValue);
+                      return (
+                        <Text style={{
+                          color: textColor,
+                          fontSize: 14,
+                          opacity: 0.7,
+                          marginTop: 8,
+                        }}>
+                          {`$${price.toFixed(2)}`}
+                        </Text>
+                      );
+                    }
+                    return null;
+                  })()}
+                </>
               )}
-                {description && (
+            </GlassView>
+
+            {/* Website URL Field */}
+            <GlassView
+              style={{
+                borderRadius: 20,
+                padding: 20,
+                overflow: 'hidden',
+              }}
+              glassEffectStyle="regular"
+            >
+              <Text style={{
+                color: textColor,
+                fontSize: 14,
+                fontWeight: '600',
+                marginBottom: 12,
+                opacity: 0.7,
+              }}>
+                Website URL
+              </Text>
+              <Host matchContents>
+                <TextField
+                  defaultValue={websiteUrl}
+                  onChangeText={(text) => {
+                    setWebsiteUrl(text);
+                    if (errors.websiteUrl) {
+                      setErrors(prev => ({ ...prev, websiteUrl: undefined }));
+                    }
+                  }}
+                  placeholder="https://example.com"
+                  autocorrection={false}
+                />
+              </Host>
+              {errors.websiteUrl && (
                 <Text style={{
-                  color: textColor,
-                  fontSize: 15,
-                  lineHeight: 22,
+                  color: errorColor,
+                  fontSize: 12,
+                  marginTop: 8,
                 }}>
-                    {description}
+                  {errors.websiteUrl}
                 </Text>
               )}
             </GlassView>
-          )}
 
-          {/* Additional Details Card */}
-          {(websiteUrl || x || instagram || facebook) && (
+            {/* Organization Name Field */}
+            <GlassView
+              style={{
+                borderRadius: 20,
+                padding: 20,
+                overflow: 'hidden',
+              }}
+              glassEffectStyle="regular"
+            >
+              <Text style={{
+                color: textColor,
+                fontSize: 14,
+                fontWeight: '600',
+                marginBottom: 12,
+                opacity: 0.7,
+              }}>
+                Hosted By
+              </Text>
+              <Host matchContents>
+                <TextField
+                  defaultValue={organizationName}
+                  onChangeText={(text) => {
+                    setOrganizationName(text);
+                    if (errors.organizationName) {
+                      setErrors(prev => ({ ...prev, organizationName: undefined }));
+                    }
+                  }}
+                  placeholder="Organization or host name"
+                />
+              </Host>
+              {errors.organizationName && (
+                <Text style={{
+                  color: errorColor,
+                  fontSize: 12,
+                  marginTop: 8,
+                }}>
+                  {errors.organizationName}
+                </Text>
+              )}
+            </GlassView>
+
+            {/* Description Field */}
+            <GlassView
+              style={{
+                borderRadius: 20,
+                padding: 20,
+                overflow: 'hidden',
+              }}
+              glassEffectStyle="regular"
+            >
+              <Text style={{
+                color: textColor,
+                fontSize: 14,
+                fontWeight: '600',
+                marginBottom: 12,
+                opacity: 0.7,
+              }}>
+                Description
+              </Text>
+              <Host matchContents>
+                <TextField
+                  defaultValue={description}
+                  onChangeText={(text) => {
+                    setDescription(text);
+                    if (errors.description) {
+                      setErrors(prev => ({ ...prev, description: undefined }));
+                    }
+                  }}
+                  placeholder="Enter event description"
+                  multiline
+                />
+              </Host>
+              {errors.description && (
+                <Text style={{
+                  color: errorColor,
+                  fontSize: 12,
+                  marginTop: 8,
+                }}>
+                  {errors.description}
+                </Text>
+              )}
+            </GlassView>
+
+            {/* Social Media Fields */}
             <GlassView
               style={{
                 borderRadius: 20,
@@ -587,119 +1062,271 @@ export default function PreviewScreen() {
                 marginBottom: 16,
                 opacity: 0.7,
               }}>
-                Additional Details
+                Social Media
               </Text>
               <View style={{ gap: 16 }}>
-                {websiteUrl && (
-                  <TouchableOpacity
-                    onPress={() => {}}
-                    activeOpacity={0.7}
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}
-                  >
-                    <Ionicons name="link-outline" size={20} color={textColor} style={{ opacity: 0.7 }} />
+                {/* X/Twitter */}
+                <View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <XSymbol size={16} color={textColor} />
                     <Text style={{
-                      color: '#3B82F6',
-                      fontSize: 16,
-                      flex: 1,
-                      textDecorationLine: 'underline',
+                      color: textColor,
+                      fontSize: 12,
+                      opacity: 0.7,
                     }}>
-                      {websiteUrl}
+                      X (Twitter)
                     </Text>
-                  </TouchableOpacity>
-                )}
-                {(x || instagram || facebook) && (
-                  <View style={{ flexDirection: 'row', gap: 16, flexWrap: 'wrap' }}>
-                    {x && (
-                      <TouchableOpacity
-                        onPress={() => {}}
-                        activeOpacity={0.7}
-                        style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
-                      >
-                        <XSymbol size={20} color={textColor} />
-                        <Text style={{
-                          color: textColor,
-                          fontSize: 14,
-                        }}>
-                          {x}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-                    {instagram && (
-                      <TouchableOpacity
-                        onPress={() => {}}
-                        activeOpacity={0.7}
-                        style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
-                      >
-                        <Ionicons name="logo-instagram" size={20} color="#E4405F" />
-                        <Text style={{
-                          color: textColor,
-                          fontSize: 14,
-                        }}>
-                          {instagram}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-                    {facebook && (
-                      <TouchableOpacity
-                        onPress={() => {}}
-                        activeOpacity={0.7}
-                        style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
-                      >
-                        <Ionicons name="logo-facebook" size={20} color="#1877F2" />
-                        <Text style={{
-                          color: textColor,
-                          fontSize: 14,
-                        }}>
-                          {facebook}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
                   </View>
-                )}
+                  <Host matchContents>
+                    <TextField
+                      defaultValue={x}
+                      onChangeText={(text) => {
+                        setX(text);
+                        if (errors.x) {
+                          setErrors(prev => ({ ...prev, x: undefined }));
+                        }
+                      }}
+                      placeholder="@username"
+                      autocorrection={false}
+                    />
+                  </Host>
+                  {errors.x && (
+                    <Text style={{
+                      color: errorColor,
+                      fontSize: 12,
+                      marginTop: 4,
+                    }}>
+                      {errors.x}
+                    </Text>
+                  )}
+                </View>
+
+                {/* Instagram */}
+                <View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <Ionicons name="logo-instagram" size={16} color="#E4405F" />
+                    <Text style={{
+                      color: textColor,
+                      fontSize: 12,
+                      opacity: 0.7,
+                    }}>
+                      Instagram
+                    </Text>
+                  </View>
+                  <Host matchContents>
+                    <TextField
+                      defaultValue={instagram}
+                      onChangeText={(text) => {
+                        setInstagram(text);
+                        if (errors.instagram) {
+                          setErrors(prev => ({ ...prev, instagram: undefined }));
+                        }
+                      }}
+                      placeholder="@username"
+                      autocorrection={false}
+                    />
+                  </Host>
+                  {errors.instagram && (
+                    <Text style={{
+                      color: errorColor,
+                      fontSize: 12,
+                      marginTop: 4,
+                    }}>
+                      {errors.instagram}
+                    </Text>
+                  )}
+                </View>
+
+                {/* Facebook */}
+                <View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <Ionicons name="logo-facebook" size={16} color="#1877F2" />
+                    <Text style={{
+                      color: textColor,
+                      fontSize: 12,
+                      opacity: 0.7,
+                    }}>
+                      Facebook
+                    </Text>
+                  </View>
+                  <Host matchContents>
+                    <TextField
+                      defaultValue={facebook}
+                      onChangeText={(text) => {
+                        setFacebook(text);
+                        if (errors.facebook) {
+                          setErrors(prev => ({ ...prev, facebook: undefined }));
+                        }
+                      }}
+                      placeholder="username"
+                      autocorrection={false}
+                    />
+                  </Host>
+                  {errors.facebook && (
+                    <Text style={{
+                      color: errorColor,
+                      fontSize: 12,
+                      marginTop: 4,
+                    }}>
+                      {errors.facebook}
+                    </Text>
+                  )}
+                </View>
               </View>
             </GlassView>
-          )}
-        </View>
-      </ScrollView>
+          </View>
+        </ScrollView>
 
-      {/* Save Button */}
-      <SafeAreaView edges={['bottom']} style={{ backgroundColor }}>
-        <View style={{
-          paddingHorizontal: 20,
-          paddingVertical: 12,
-          borderTopWidth: 1,
-          borderTopColor: colorScheme === 'dark' ? '#1F2937' : '#E5E7EB',
-        }}>
-          <TouchableOpacity
-            onPress={handleSave}
-            disabled={isSaving}
-            activeOpacity={0.85}
-            style={{
-              backgroundColor: tintColor,
-              paddingVertical: 14,
-              borderRadius: 14,
-              alignItems: 'center',
-              flexDirection: 'row',
-              justifyContent: 'center',
-              gap: 8,
-              opacity: isSaving ? 0.7 : 1,
+        {/* Save Button */}
+        <SafeAreaView edges={['bottom']} style={{ backgroundColor }}>
+          <View style={{
+            paddingHorizontal: 20,
+            paddingVertical: 12,
+            borderTopWidth: 1,
+            borderTopColor: colorScheme === 'dark' ? '#1F2937' : '#E5E7EB',
+          }}>
+            <TouchableOpacity
+              onPress={handleSave}
+              disabled={isSaving || !isFormValid}
+              activeOpacity={0.85}
+              style={{
+                backgroundColor: tintColor,
+                paddingVertical: 14,
+                borderRadius: 14,
+                alignItems: 'center',
+                flexDirection: 'row',
+                justifyContent: 'center',
+                gap: 8,
+                opacity: (isSaving || !isFormValid) ? 0.5 : 1,
+              }}
+            >
+              {isSaving ? (
+                <ActivityIndicator color={Colors[colorScheme].text} />
+              ) : (
+                <Ionicons name="save-outline" size={18} color={Colors[colorScheme].text} />
+              )}
+              <Text style={{
+                color: Colors[colorScheme].text,
+                fontSize: 16,
+                fontWeight: '700',
+              }}>
+                {isSaving ? 'Saving...' : 'Save Event'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </KeyboardAvoidingView>
+
+      {/* Date Picker Bottom Sheet */}
+      {isDatePickerOpen && editingDateIndex !== null && (
+        <Host style={{ position: 'absolute', width, height, zIndex: 1000, pointerEvents: 'box-none' }}>
+          <BottomSheet
+            isOpened={isDatePickerOpen}
+            onIsOpenedChange={(isOpen) => {
+              setIsDatePickerOpen(isOpen);
+              if (!isOpen) setEditingDateIndex(null);
             }}
+            presentationDetents={[0.3, 'large']}
           >
-            {isSaving ? (
-              <ActivityIndicator color={Colors[colorScheme].text} />
-            ) : (
-              <Ionicons name="save-outline" size={18} color={Colors[colorScheme].text} />
-            )}
-            <Text style={{
-              color: Colors[colorScheme].text,
-              fontSize: 16,
-              fontWeight: '700',
+            <View style={{
+              paddingTop: 20,
+              paddingBottom: insets.bottom + 20,
+              paddingHorizontal: 20,
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              minHeight: height * 0.45,
             }}>
-              {isSaving ? 'Saving...' : 'Save Event'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+              <View 
+                style={{
+                  marginBottom: 20,
+                }}
+              >
+                <Text style={{
+                  color: textColor,
+                  fontSize: 18,
+                  fontWeight: '700',
+                }}>
+                  Select Date {selectedDates.length > 1 ? `(${editingDateIndex! + 1})` : ''}
+                </Text>
+              </View>
+              <Host style={{ minHeight: 200 }}>
+                <DateTimePicker
+                  displayedComponents="date"
+                  variant="wheel"
+                  initialDate={selectedDates[editingDateIndex!]?.toISOString() || new Date().toISOString()}
+                  onDateSelected={(date) => {
+                    const dateObj = new Date(date);
+                    updateDate(editingDateIndex!, dateObj);
+                    // Clear error when user selects date
+                    if (errors.date) {
+                      setErrors(prev => ({ ...prev, date: undefined }));
+                    }
+                  }}
+                />
+              </Host>
+            </View>
+          </BottomSheet>
+        </Host>
+      )}
+
+      {/* Time Picker Bottom Sheet */}
+      {isTimePickerOpen && (isEditingStartTime || isEditingEndTime) && (
+        <Host style={{ position: 'absolute', width, height, zIndex: 1000, pointerEvents: 'box-none' }}>
+          <BottomSheet
+            isOpened={isTimePickerOpen}
+            onIsOpenedChange={(isOpen) => {
+              setIsTimePickerOpen(isOpen);
+              if (!isOpen) {
+                setIsEditingStartTime(false);
+                setIsEditingEndTime(false);
+              }
+            }}
+            presentationDetents={[0.3, 'large']}
+          >
+            <View style={{
+              paddingTop: 20,
+              paddingBottom: insets.bottom + 20,
+              paddingHorizontal: 20,
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              minHeight: height * 0.4,
+            }}>
+              <View 
+                style={{
+                  marginBottom: 20,
+                }}
+              >
+                <Text style={{
+                  color: textColor,
+                  fontSize: 18,
+                  fontWeight: '700',
+                }}>
+                  Select {isEditingStartTime ? 'Start' : 'End'} Time
+                </Text>
+              </View>
+              <Host style={{ minHeight: 200 }}>
+                <DateTimePicker
+                  displayedComponents="hourAndMinute"
+                  variant="wheel"
+                  initialDate={(isEditingStartTime ? startTime : endTime)?.toISOString() || new Date().toISOString()}
+                  onDateSelected={(date) => {
+                    const dateObj = new Date(date);
+                    if (isEditingStartTime) {
+                      setStartTime(dateObj);
+                    } else {
+                      setEndTime(dateObj);
+                    }
+                    // Clear error when user selects time
+                    if (errors.time) {
+                      setErrors(prev => ({ ...prev, time: undefined }));
+                    }
+                  }}
+                />
+              </Host>
+            </View>
+          </BottomSheet>
+        </Host>
+      )}
     </SafeAreaView>
   );
 }

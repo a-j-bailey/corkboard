@@ -200,8 +200,44 @@ export default function AddScreen() {
     }
   };
 
+  const openPreviewForTesting = () => {
+    // Temporary testing function - opens preview with empty data
+    router.push({
+      pathname: '/add/preview',
+      params: {
+        eventData: encodeURIComponent(JSON.stringify({})),
+        posterImageUri: '',
+      },
+    });
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor }}>
+      {/* Temporary Testing Button */}
+      <TouchableOpacity
+        onPress={openPreviewForTesting}
+        style={{
+          position: 'absolute',
+          top: insets.top + 12,
+          right: 16,
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          backgroundColor: tintColor,
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.25,
+          shadowRadius: 3.84,
+          elevation: 5,
+        }}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="add" size={24} color={Colors[colorScheme].text} />
+      </TouchableOpacity>
+
       {capturedImageUri ? (
         // Show captured/selected image
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 16, backgroundColor }}>
