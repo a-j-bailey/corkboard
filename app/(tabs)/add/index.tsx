@@ -226,19 +226,13 @@ export default function AddScreen() {
           width: 44,
           height: 44,
           borderRadius: 22,
-          backgroundColor: tintColor,
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 1000,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.25,
-          shadowRadius: 3.84,
-          elevation: 5,
         }}
         activeOpacity={0.8}
       >
-        <Ionicons name="add" size={24} color={Colors[colorScheme].text} />
+        <Ionicons name="add" size={24} color={Colors[colorScheme].tint} />
       </TouchableOpacity>
 
       {capturedImageUri ? (

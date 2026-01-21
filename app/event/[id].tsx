@@ -32,7 +32,7 @@ export default function EventDetailRoute() {
   const { events, refreshEvents, loading, toggleBookmark } = useEvents();
   const { user } = useUser();
   const textColor = Colors[colorScheme].text;
-  const bookmarkGoldColor = Colors[colorScheme].bookmarkGold;
+  const bookmarkGoldColor = Colors[colorScheme].yellow;
   const imageBgColor = colorScheme === 'dark' ? '#1F1F1F' : '#E5E7EB';
 
   const event = useMemo(

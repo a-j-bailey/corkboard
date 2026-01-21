@@ -19,6 +19,7 @@ export default function ProfileScreen() {
   const backgroundColor = Colors[colorScheme].background;
   const textColor = Colors[colorScheme].text;
   const tintColor = Colors[colorScheme].tint;
+  const yellowColor = Colors[colorScheme].yellow;
 
   if (loading) {
     return (
@@ -75,9 +76,9 @@ export default function ProfileScreen() {
               {/* Avatar */}
               <GlassView
                 style={{
-                  width: 60,
-                  height: 60,
-                  borderRadius: 30,
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
                   justifyContent: 'center',
                   alignItems: 'center',
                   overflow: 'hidden',
@@ -87,7 +88,7 @@ export default function ProfileScreen() {
               >
                 <Text
                   style={{
-                    fontSize: 24,
+                    fontSize: 16,
                     fontWeight: '700',
                     color: Colors[colorScheme].background,
                   }}
@@ -101,7 +102,7 @@ export default function ProfileScreen() {
                 <ThemedText
                   type="title"
                   style={{
-                    fontSize: 24,
+                    fontSize: 22,
                     fontWeight: '700',
                     marginBottom: 0,
                   }}
@@ -178,12 +179,12 @@ export default function ProfileScreen() {
                         width: 44,
                         height: 44,
                         borderRadius: 22,
-                        backgroundColor: tintColor + '20',
+                        backgroundColor: yellowColor + '20',
                         justifyContent: 'center',
                         alignItems: 'center',
                       }}
                     >
-                      <Ionicons name="bookmark-outline" size={22} color={tintColor} />
+                      <Ionicons name="bookmark-outline" size={22} color={yellowColor} />
                     </View>
                     <View>
                       <Text
