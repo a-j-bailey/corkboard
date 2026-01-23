@@ -12,7 +12,8 @@
       "infoPlist": {
         "NSCameraUsageDescription": "This app needs access to your camera to take photos for your posts.",
         "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to select event poster images.",
-        "NSLocationWhenInUseUsageDescription": "This app needs access to your location to geocode event addresses and find nearby locations."
+        "NSLocationWhenInUseUsageDescription": "This app needs access to your location to geocode event addresses and find nearby locations.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs access to your location to geocode event addresses and find nearby locations."
       },
       "bundleIdentifier": "com.magicmirrorcreative.corkboard"
     },
@@ -72,7 +73,8 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "This app needs access to your location to geocode event addresses and find nearby locations."
+          "locationWhenInUsePermission": "This app needs access to your location to geocode event addresses and find nearby locations.",
+          "locationAlwaysAndWhenInUsePermission": "This app needs access to your location to geocode event addresses and find nearby locations."
         }
       ]
     ],

@@ -1,6 +1,7 @@
-import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import React, { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 import * as bookmarkService from '../services/bookmarkService';
 import * as eventService from '../services/eventService';
+import { getCurrentLocation, UserLocation } from '../services/locationService';
 import { useUser } from './UserContext';
 
 export interface SocialMediaHandles {
@@ -35,15 +36,22 @@ export interface Event {
   isBookmarked?: boolean; // Whether the current user has bookmarked this event
 }
 
+export type DistanceFilter = 1 | 2 | 5 | 10 | 25 | null; // Distance in miles, null means no filter
+
 interface EventContextType {
   events: Event[];
   loading: boolean;
   error: string | null;
   bookmarkedEventIds: Set<string>;
+  userLocation: UserLocation | null;
+  distanceFilter: DistanceFilter;
+  locationAvailable: boolean;
   addEvent: (event: Omit<Event, 'id' | 'userId' | 'createdAt' | 'updatedAt'>, imageUri?: string) => Promise<Event>;
   getEvents: () => Event[];
   refreshEvents: () => Promise<void>;
   toggleBookmark: (eventId: string) => Promise<void>;
+  setDistanceFilter: (distance: DistanceFilter) => void;
+  refreshLocation: () => Promise<void>;
 }
 
 const EventContext = createContext<EventContextType | undefined>(undefined);
@@ -53,18 +61,35 @@ export function EventProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [bookmarkedEventIds, setBookmarkedEventIds] = useState<Set<string>>(new Set());
+  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+  const [distanceFilter, setDistanceFilter] = useState<DistanceFilter>(null);
+  const [locationAvailable, setLocationAvailable] = useState(false);
   const { user } = useUser();
 
-  // Load events on mount and when user changes
-  useEffect(() => {
-    refreshEvents();
-  }, [user]);
+  const refreshLocation = useCallback(async () => {
+    try {
+      const location = await getCurrentLocation();
+      setUserLocation(location);
+      setLocationAvailable(location !== null);
+    } catch (err) {
+      console.error('[EventContext] Error getting location:', err);
+      setUserLocation(null);
+      setLocationAvailable(false);
+    }
+  }, []);
 
-  const refreshEvents = async () => {
+  const refreshEvents = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const fetchedEvents = await eventService.getEvents(user?.id);
+      
+      // Only apply distance filter if location is available and filter is set
+      const maxDistance = userLocation && distanceFilter !== null ? distanceFilter : null;
+      const fetchedEvents = await eventService.getEvents(
+        user?.id,
+        userLocation,
+        maxDistance
+      );
       setEvents(fetchedEvents);
       
       // Update bookmarked IDs set
@@ -80,7 +105,17 @@ export function EventProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id, userLocation, distanceFilter, user]);
+
+  // Load location on mount and when user changes
+  useEffect(() => {
+    refreshLocation();
+  }, [user, refreshLocation]);
+
+  // Load events - triggered by user, distanceFilter, or userLocation changes
+  useEffect(() => {
+    refreshEvents();
+  }, [user?.id, distanceFilter, userLocation, refreshEvents]);
 
   const toggleBookmark = async (eventId: string) => {
     if (!user) {
@@ -146,7 +181,21 @@ export function EventProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <EventContext.Provider value={{ events, loading, error, bookmarkedEventIds, addEvent, getEvents, refreshEvents, toggleBookmark }}>
+    <EventContext.Provider value={{ 
+      events, 
+      loading, 
+      error, 
+      bookmarkedEventIds, 
+      userLocation,
+      distanceFilter,
+      locationAvailable,
+      addEvent, 
+      getEvents, 
+      refreshEvents, 
+      toggleBookmark,
+      setDistanceFilter,
+      refreshLocation,
+    }}>
       {children}
     </EventContext.Provider>
   );

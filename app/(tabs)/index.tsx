@@ -1,20 +1,48 @@
-import { Image } from 'expo-image';
+import { Button, Host, Menu } from '@expo/ui/swift-ui';
+import { labelStyle } from '@expo/ui/swift-ui/modifiers';
+import { GlassView } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { FlatList, Platform, RefreshControl, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { FlatList, Platform, RefreshControl, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/theme';
-import { Event, useEvents } from '../../contexts/EventContext';
+import { DistanceFilter, Event, useEvents } from '../../contexts/EventContext';
 import { useTheme } from '../../contexts/ThemeContext';
+
+const DISTANCE_OPTIONS: { value: DistanceFilter; label: string }[] = [
+  { value: 1, label: '1 mile' },
+  { value: 2, label: '2 miles' },
+  { value: 5, label: '5 miles' },
+  { value: 10, label: '10 miles' },
+  { value: 25, label: '25 miles' },
+  { value: null, label: 'All' },
+];
 
 export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const { colorScheme } = useTheme();
   const insets = useSafeAreaInsets();
-  const { events, refreshEvents, loading } = useEvents();
+  const { 
+    events, 
+    refreshEvents, 
+    loading, 
+    distanceFilter, 
+    setDistanceFilter, 
+    locationAvailable 
+  } = useEvents();
   const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
+
+  // Set refreshing when filter changes and events are loading
+  useEffect(() => {
+    if (loading) {
+      setRefreshing(true);
+    } else {
+      setRefreshing(false);
+    }
+  }, [loading]);
 
   // Calculate number of columns (2 or 3 columns)
   const gap = 32;
@@ -27,6 +55,13 @@ export default function HomeScreen() {
 
   const backgroundColor = Colors[colorScheme].background;
   const borderColor = '#f5f5f5'; // Slightly off-white border for both light and dark mode
+  const textColor = Colors[colorScheme].text;
+  const tintColor = Colors[colorScheme].tint;
+
+  const handleDistanceSelect = (distance: DistanceFilter) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setDistanceFilter(distance);
+  };
 
   // Generate random rotation values synchronously when events change
   // Use a seeded random function based on event ID to ensure consistent rotation per event
@@ -91,6 +126,67 @@ export default function HomeScreen() {
     );
   };
 
+  const renderHeader = () => {
+    return (
+      <View style={{ paddingHorizontal: padding, paddingTop: padding + insets.top, paddingBottom: padding }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' }}>
+          {/* Filter Menu */}
+          <GlassView
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              overflow: 'hidden',
+            }}
+            glassEffectStyle="regular"
+          >
+            <Host style={{ width: 44, height: 44, borderRadius: 22, overflow: 'hidden' }}>
+              <Menu
+                systemImage="slider.horizontal.3"
+                modifiers={[labelStyle('iconOnly')]}
+                label={<Button systemImage="slider.horizontal.3" modifiers={[labelStyle('iconOnly')]} label="Filter by Distance" />}
+              >
+                {DISTANCE_OPTIONS.map((option) => (
+                  <Button
+                    key={option.value ?? 'all'}
+                    label={option.label}
+                    systemImage={distanceFilter === option.value ? 'checkmark' : undefined}
+                    onPress={() => handleDistanceSelect(option.value)}
+                  />
+                ))}
+              </Menu>
+            </Host>
+          </GlassView>
+        </View>
+        {/* Location Unavailable Message */}
+        {!locationAvailable && (
+          <View
+            style={{
+              marginTop: 12,
+              backgroundColor: backgroundColor,
+              padding: 12,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: borderColor,
+            }}
+          >
+            <Text
+              style={{
+                color: textColor,
+                fontSize: 13,
+                textAlign: 'center',
+                lineHeight: 18,
+              }}
+            >
+              Location access is needed to filter events by distance.{'\n'}
+              Enable location in Settings to use proximity filtering.
+            </Text>
+          </View>
+        )}
+      </View>
+    );
+  };
+
   return (
     <View className="flex-1" style={{ backgroundColor }}>
       <FlatList
@@ -104,7 +200,7 @@ export default function HomeScreen() {
           paddingBottom: padding + insets.bottom,
           minHeight: '100%',
         }}
-        ListHeaderComponent={<View style={{ height: padding + insets.top }} />}
+        ListHeaderComponent={renderHeader}
         columnWrapperStyle={numColumns > 1 ? { justifyContent: 'flex-start' } : undefined}
         showsVerticalScrollIndicator={false}
         refreshControl={

@@ -1,6 +1,8 @@
 import { File } from 'expo-file-system';
 import { Event, EventDate } from '../contexts/EventContext';
 import { supabase } from '../lib/supabase';
+import { calculateDistance } from '../utils/distanceCalculator';
+import { UserLocation } from './locationService';
 
 /**
  * Database representation of an event
@@ -228,8 +230,14 @@ export async function createEvent(
 /**
  * Gets all events from the database
  * @param userId Optional user ID to include bookmark status
+ * @param userLocation Optional user location for proximity filtering
+ * @param maxDistance Optional maximum distance in miles for filtering events
  */
-export async function getEvents(userId?: string): Promise<Event[]> {
+export async function getEvents(
+  userId?: string,
+  userLocation?: UserLocation | null,
+  maxDistance?: number | null
+): Promise<Event[]> {
   try {
     const { data, error } = await supabase
       .from('events')
@@ -245,7 +253,28 @@ export async function getEvents(userId?: string): Promise<Event[]> {
     // Filter out events with pending or confirmed reports
     const { getEventIdsWithActiveReports } = await import('./reportService');
     const reportedEventIds = await getEventIdsWithActiveReports();
-    const filteredEvents = events.filter((event) => !reportedEventIds.has(event.id));
+    let filteredEvents = events.filter((event) => !reportedEventIds.has(event.id));
+
+    // Apply location-based filtering if location and maxDistance are provided
+    if (userLocation && maxDistance !== null && maxDistance !== undefined) {
+      filteredEvents = filteredEvents.filter((event) => {
+        // If event has no coordinates, include it (can't filter)
+        if (event.latitude === undefined || event.longitude === undefined) {
+          return true;
+        }
+
+        // Calculate distance and filter
+        const distance = calculateDistance(
+          userLocation,
+          {
+            latitude: event.latitude,
+            longitude: event.longitude,
+          }
+        );
+
+        return distance <= maxDistance;
+      });
+    }
 
     // If userId is provided, fetch bookmark status
     if (userId) {
