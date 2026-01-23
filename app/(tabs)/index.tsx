@@ -1,10 +1,11 @@
+import { Button, Host, Menu } from '@expo/ui/swift-ui';
+import { labelStyle } from '@expo/ui/swift-ui/modifiers';
 import { GlassView } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { SymbolView } from 'expo-symbols';
 import { useEffect, useMemo, useState } from 'react';
-import { ActionSheetIOS, FlatList, Platform, Pressable, RefreshControl, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { FlatList, Platform, RefreshControl, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/theme';
 import { DistanceFilter, Event, useEvents } from '../../contexts/EventContext';
@@ -23,13 +24,13 @@ export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const { colorScheme } = useTheme();
   const insets = useSafeAreaInsets();
-  const {
-    events,
-    refreshEvents,
-    loading,
-    distanceFilter,
-    setDistanceFilter,
-    locationAvailable
+  const { 
+    events, 
+    refreshEvents, 
+    loading, 
+    distanceFilter, 
+    setDistanceFilter, 
+    locationAvailable 
   } = useEvents();
   const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
@@ -60,27 +61,6 @@ export default function HomeScreen() {
   const handleDistanceSelect = (distance: DistanceFilter) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setDistanceFilter(distance);
-  };
-
-  const showFilterMenu = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-    if (Platform.OS === 'ios') {
-      const options = [...DISTANCE_OPTIONS.map(opt => opt.label), 'Cancel'];
-      const cancelButtonIndex = options.length - 1;
-
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options,
-          cancelButtonIndex,
-        },
-        (buttonIndex: number) => {
-          if (buttonIndex !== cancelButtonIndex) {
-            handleDistanceSelect(DISTANCE_OPTIONS[buttonIndex].value);
-          }
-        }
-      );
-    }
   };
 
   // Generate random rotation values synchronously when events change
@@ -149,10 +129,40 @@ export default function HomeScreen() {
   const renderHeader = () => {
     return (
       <View style={{ paddingHorizontal: padding, paddingTop: padding + insets.top, paddingBottom: padding }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' }}>
+          {/* Filter Menu */}
+          <GlassView
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              overflow: 'hidden',
+            }}
+            glassEffectStyle="regular"
+          >
+            <Host style={{ width: 44, height: 44, borderRadius: 22, overflow: 'hidden' }}>
+              <Menu
+                systemImage="slider.horizontal.3"
+                modifiers={[labelStyle('iconOnly')]}
+                label={<Button systemImage="slider.horizontal.3" modifiers={[labelStyle('iconOnly')]} label="Filter by Distance" />}
+              >
+                {DISTANCE_OPTIONS.map((option) => (
+                  <Button
+                    key={option.value ?? 'all'}
+                    label={option.label}
+                    systemImage={distanceFilter === option.value ? 'checkmark' : undefined}
+                    onPress={() => handleDistanceSelect(option.value)}
+                  />
+                ))}
+              </Menu>
+            </Host>
+          </GlassView>
+        </View>
         {/* Location Unavailable Message */}
         {!locationAvailable && (
           <View
             style={{
+              marginTop: 12,
               backgroundColor: backgroundColor,
               padding: 12,
               borderRadius: 12,
@@ -179,55 +189,14 @@ export default function HomeScreen() {
 
   return (
     <View className="flex-1" style={{ backgroundColor }}>
-      {/* Floating Filter Button */}
-      <View
-        style={{
-          position: 'absolute',
-          top: insets.top + padding,
-          right: padding,
-          zIndex: 1000,
-        }}
-      >
-        <GlassView
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 22,
-            overflow: 'hidden',
-            justifyContent: 'center',
-            alignItems: 'center',
-          }}
-          glassEffectStyle="regular"
-        >
-          <Pressable
-            onPress={showFilterMenu}
-            style={{
-              width: 44,
-              height: 44,
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}
-          >
-            <SymbolView
-              name="line.3.horizontal.decrease"
-              tintColor="#FFFFFF"
-              resizeMode="scaleAspectFit"
-              style={{
-                width: 24,
-                height: 24,
-              }}
-            />
-          </Pressable>
-        </GlassView>
-      </View>
       <FlatList
         data={events}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
         numColumns={numColumns}
         style={{ backgroundColor }}
-        contentContainerStyle={{
-          padding,
+        contentContainerStyle={{ 
+          padding, 
           paddingBottom: padding + insets.bottom,
           minHeight: '100%',
         }}
