@@ -1,4 +1,4 @@
-import { BottomSheet, DatePicker, Host, TextField, Toggle } from '@expo/ui/swift-ui';
+import { DatePicker, Host, TextField, Toggle } from '@expo/ui/swift-ui';
 import { Ionicons } from '@expo/vector-icons';
 import { GlassView } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
@@ -16,7 +16,6 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  useWindowDimensions
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { XSymbol } from '../../../components/XSymbol';
@@ -25,7 +24,14 @@ import { Event, EventDate, SocialMediaHandles, useEvents } from '../../../contex
 import { useTheme } from '../../../contexts/ThemeContext';
 import { parsePriceToNumber } from '../../../services/eventParser';
 import { geocodeLocation } from '../../../services/geocodingService';
-import { formatDateOnly, formatTime } from '../../../utils/dateFormatter';
+
+// Day settings interface
+interface DaySettings {
+  date: Date;
+  startTime: Date | null;
+  endTime: Date | null;
+  isAllDay: boolean;
+}
 
 // Validation error types
 interface ValidationErrors {
@@ -54,13 +60,25 @@ const validateTitle = (title: string): string | undefined => {
   return undefined;
 };
 
-const validateDates = (dates: Date[]): string | undefined => {
-  if (!dates || dates.length === 0) {
+const validateDaySettings = (daySettings: DaySettings[]): string | undefined => {
+  if (!daySettings || daySettings.length === 0) {
     return 'At least one event date is required';
   }
-  for (const date of dates) {
-    if (!date || isNaN(date.getTime())) {
+  for (const day of daySettings) {
+    if (!day.date || isNaN(day.date.getTime())) {
       return 'Please select valid dates';
+    }
+    // If not all day, validate times
+    if (!day.isAllDay) {
+      if (!day.startTime || isNaN(day.startTime.getTime())) {
+        return 'Please select a valid start time';
+      }
+      if (day.endTime && !isNaN(day.endTime.getTime())) {
+        // Validate end time is after start time
+        if (day.endTime.getTime() <= day.startTime.getTime()) {
+          return 'End time must be after start time';
+        }
+      }
     }
   }
   return undefined;
@@ -139,7 +157,6 @@ const validateSocialHandle = (handle: string, platform: string): string | undefi
 
 export default function PreviewScreen() {
   const router = useRouter();
-  const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { addEvent } = useEvents();
   const { colorScheme } = useTheme();
@@ -166,47 +183,67 @@ export default function PreviewScreen() {
   
   const posterImageUri = params.posterImageUri || undefined;
 
-  // Helper function to extract initial dates from EventDate array
-  const extractInitialDates = (eventData: Partial<Event>): Date[] => {
+  // Helper function to extract initial day settings from EventDate array
+  const extractInitialDaySettings = (eventData: Partial<Event>): DaySettings[] => {
     if (eventData.dates && eventData.dates.length > 0) {
       return eventData.dates.map(dateItem => {
-        const date = new Date(dateItem.start);
-        if (!isNaN(date.getTime())) {
-          return date;
+        const startDate = new Date(dateItem.start);
+        if (isNaN(startDate.getTime())) {
+          // Invalid date, use today
+          const today = new Date();
+          return {
+            date: today,
+            startTime: null,
+            endTime: null,
+            isAllDay: true,
+          };
         }
-        return new Date();
-      }).filter(Boolean);
-    }
-    // Default to today if no date provided
-    return [new Date()];
-  };
 
-  // Helper function to extract initial start time from EventDate array
-  const extractInitialStartTime = (eventData: Partial<Event>): Date | null => {
-    if (eventData.dates && eventData.dates.length > 0) {
-      const firstDate = new Date(eventData.dates[0].start);
-      if (!isNaN(firstDate.getTime())) {
-        // Check if time is set (not midnight UTC)
-        const utcHours = firstDate.getUTCHours();
-        const utcMinutes = firstDate.getUTCMinutes();
-        if (utcHours !== 0 || utcMinutes !== 0) {
-          // Use local time from the date
-          return firstDate;
+        // Check if this is an all-day event (midnight UTC)
+        const utcHours = startDate.getUTCHours();
+        const utcMinutes = startDate.getUTCMinutes();
+        const isAllDay = utcHours === 0 && utcMinutes === 0;
+
+        // Extract date (without time) - use local date components
+        const date = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+
+        // Extract start time if not all day
+        let startTime: Date | null = null;
+        if (!isAllDay) {
+          // Create a time-only date object for the picker
+          // Use a fixed date (today) with the time from startDate
+          const timeDate = new Date();
+          timeDate.setHours(startDate.getHours(), startDate.getMinutes(), 0, 0);
+          startTime = timeDate;
         }
-      }
-    }
-    return null;
-  };
 
-  // Helper function to extract initial end time from EventDate array
-  const extractInitialEndTime = (eventData: Partial<Event>): Date | null => {
-    if (eventData.dates && eventData.dates.length > 0 && eventData.dates[0].end) {
-      const endDate = new Date(eventData.dates[0].end);
-      if (!isNaN(endDate.getTime())) {
-        return endDate;
-      }
+        // Extract end time if present
+        let endTime: Date | null = null;
+        if (dateItem.end) {
+          const endDate = new Date(dateItem.end);
+          if (!isNaN(endDate.getTime())) {
+            // Create a time-only date object for the picker
+            const timeDate = new Date();
+            timeDate.setHours(endDate.getHours(), endDate.getMinutes(), 0, 0);
+            endTime = timeDate;
+          }
+        }
+
+        return {
+          date,
+          startTime,
+          endTime,
+          isAllDay,
+        };
+      });
     }
-    return null;
+    // Default to today with all day
+    return [{
+      date: new Date(),
+      startTime: null,
+      endTime: null,
+      isAllDay: true,
+    }];
   };
 
   // Helper function to extract price string from number or old format
@@ -221,16 +258,12 @@ export default function PreviewScreen() {
     return '';
   };
 
-  const initialDates = extractInitialDates(initialEventData);
-  const initialStartTime = extractInitialStartTime(initialEventData);
-  const initialEndTime = extractInitialEndTime(initialEventData);
+  const initialDaySettings = extractInitialDaySettings(initialEventData);
   const initialPrice = extractPriceString(initialEventData);
 
   // Form state
   const [title, setTitle] = useState(initialEventData.title || '');
-  const [selectedDates, setSelectedDates] = useState<Date[]>(initialDates);
-  const [startTime, setStartTime] = useState<Date | null>(initialStartTime);
-  const [endTime, setEndTime] = useState<Date | null>(initialEndTime);
+  const [daySettings, setDaySettings] = useState<DaySettings[]>(initialDaySettings);
   const [address, setAddress] = useState(initialEventData.address || '');
   const [cost, setCost] = useState(initialPrice);
   const [isFree, setIsFree] = useState(initialPrice === 'Free' || initialEventData.price === 0);
@@ -244,34 +277,14 @@ export default function PreviewScreen() {
   // Validation errors state
   const [errors, setErrors] = useState<ValidationErrors>({});
 
-  // Bottom sheet state
-  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
-  const [isTimePickerOpen, setIsTimePickerOpen] = useState(false);
-  const [editingDateIndex, setEditingDateIndex] = useState<number | null>(null);
-  const [isEditingStartTime, setIsEditingStartTime] = useState(false);
-  const [isEditingEndTime, setIsEditingEndTime] = useState(false);
-
-  // Store the original dates array if it exists (for multiple dates display)
-  const [originalDates, setOriginalDates] = useState(initialEventData.dates || []);
 
   // Update state when params change
   useEffect(() => {
-    const dates = extractInitialDates(initialEventData);
-    const startTime = extractInitialStartTime(initialEventData);
-    const endTime = extractInitialEndTime(initialEventData);
+    const daySettings = extractInitialDaySettings(initialEventData);
     const priceStr = extractPriceString(initialEventData);
     
-    // Store original dates array if it exists
-    if (initialEventData.dates && initialEventData.dates.length > 0) {
-      setOriginalDates(initialEventData.dates);
-    } else {
-      setOriginalDates([]);
-    }
-    
     setTitle(initialEventData.title || '');
-    setSelectedDates(dates);
-    setStartTime(startTime);
-    setEndTime(endTime);
+    setDaySettings(daySettings);
     setAddress(initialEventData.address || '');
     setCost(priceStr);
     setIsFree(priceStr === 'Free' || initialEventData.price === 0);
@@ -289,7 +302,7 @@ export default function PreviewScreen() {
     const titleError = validateTitle(title);
     if (titleError) return false;
 
-    const datesError = validateDates(selectedDates);
+    const datesError = validateDaySettings(daySettings);
     if (datesError) return false;
 
     const costError = validatePrice(cost);
@@ -323,7 +336,7 @@ export default function PreviewScreen() {
     const titleError = validateTitle(title);
     if (titleError) newErrors.title = titleError;
 
-    const datesError = validateDates(selectedDates);
+    const datesError = validateDaySettings(daySettings);
     if (datesError) newErrors.date = datesError;
 
     const addressError = address.trim() ? undefined : undefined; // Address is optional
@@ -361,7 +374,7 @@ export default function PreviewScreen() {
       return;
     }
 
-    if (selectedDates.length === 0) {
+    if (daySettings.length === 0) {
       Alert.alert('Error', 'Please select at least one event date');
       return;
     }
@@ -369,30 +382,50 @@ export default function PreviewScreen() {
     setIsSaving(true);
 
     try {
-      // Combine dates and times into EventDate format
-      const dates: EventDate[] = selectedDates.map(date => {
-        const eventDate = new Date(date);
-        
-        // Set start time if provided
-        if (startTime) {
-          eventDate.setHours(startTime.getHours(), startTime.getMinutes(), 0, 0);
+      // Convert day settings to EventDate format
+      const dates: EventDate[] = daySettings.map(day => {
+        if (day.isAllDay) {
+          // All-day event: use UTC midnight for the date
+          // Use UTC date components to avoid timezone issues
+          const dateOnly = new Date(Date.UTC(
+            day.date.getFullYear(),
+            day.date.getMonth(),
+            day.date.getDate(),
+            0, 0, 0, 0
+          ));
+          return {
+            start: dateOnly.toISOString(),
+          };
         } else {
-          // Date-only event, use UTC midnight
-          eventDate.setHours(0, 0, 0, 0);
+          // Event with time: combine date and start time
+          const startDateTime = new Date(
+            day.date.getFullYear(),
+            day.date.getMonth(),
+            day.date.getDate(),
+            day.startTime ? day.startTime.getHours() : 0,
+            day.startTime ? day.startTime.getMinutes() : 0,
+            0, 0
+          );
+          
+          const eventDateItem: EventDate = {
+            start: startDateTime.toISOString(),
+          };
+          
+          // Add end time if provided
+          if (day.endTime) {
+            const endDateTime = new Date(
+              day.date.getFullYear(),
+              day.date.getMonth(),
+              day.date.getDate(),
+              day.endTime.getHours(),
+              day.endTime.getMinutes(),
+              0, 0
+            );
+            eventDateItem.end = endDateTime.toISOString();
+          }
+          
+          return eventDateItem;
         }
-        
-        const eventDateItem: EventDate = {
-          start: eventDate.toISOString(),
-        };
-        
-        // Add end time if provided
-        if (endTime) {
-          const endDate = new Date(date);
-          endDate.setHours(endTime.getHours(), endTime.getMinutes(), 0, 0);
-          eventDateItem.end = endDate.toISOString();
-        }
-        
-        return eventDateItem;
       });
 
       // Parse price to number - if isFree is true, always set to 0, otherwise parse the cost string
@@ -471,34 +504,40 @@ export default function PreviewScreen() {
 
   // Check if form is valid for submit button state
   // Use checkFormValid to ensure button state updates when errors are fixed
-  const isFormValid = title.trim() && selectedDates.length > 0 && checkFormValid();
+  const isFormValid = title.trim() && daySettings.length > 0 && checkFormValid();
 
-  // Helper functions for managing dates
-  const addDate = () => {
+  // Helper functions for managing day settings
+  const addDay = () => {
     // Default new date to previous date + 1 day, or today if no dates exist
     let newDate: Date;
-    if (selectedDates.length > 0) {
-      const lastDate = selectedDates[selectedDates.length - 1];
-      newDate = new Date(lastDate);
+    if (daySettings.length > 0) {
+      const lastDay = daySettings[daySettings.length - 1];
+      newDate = new Date(lastDay.date);
       newDate.setDate(newDate.getDate() + 1);
     } else {
       newDate = new Date();
     }
-    setSelectedDates([...selectedDates, newDate]);
-    setEditingDateIndex(selectedDates.length); // Set to the new date's index
-    setIsDatePickerOpen(true);
+    
+    const newDay: DaySettings = {
+      date: newDate,
+      startTime: null,
+      endTime: null,
+      isAllDay: true,
+    };
+    
+    setDaySettings([...daySettings, newDay]);
   };
 
-  const removeDate = (index: number) => {
-    if (selectedDates.length > 1) {
-      setSelectedDates(selectedDates.filter((_, i) => i !== index));
+  const removeDay = (index: number) => {
+    if (daySettings.length > 1) {
+      setDaySettings(daySettings.filter((_, i) => i !== index));
     }
   };
 
-  const updateDate = (index: number, newDate: Date) => {
-    const updatedDates = [...selectedDates];
-    updatedDates[index] = newDate;
-    setSelectedDates(updatedDates);
+  const updateDay = (index: number, updates: Partial<DaySettings>) => {
+    const updated = [...daySettings];
+    updated[index] = { ...updated[index], ...updates };
+    setDaySettings(updated);
   };
 
   return (
@@ -625,19 +664,12 @@ export default function PreviewScreen() {
               )}
             </GlassView>
 
-            {/* Date and Time Fields */}
-            <GlassView
-              style={{
-                borderRadius: 20,
-                padding: 20,
-                overflow: 'hidden',
-              }}
-              glassEffectStyle="regular"
-            >
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            {/* Event Dates Section */}
+            <View>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <Text style={{
                   color: textColor,
-                  fontSize: 14,
+                  fontSize: 16,
                   fontWeight: '600',
                   opacity: 0.7,
                 }}>
@@ -646,7 +678,7 @@ export default function PreviewScreen() {
                 <TouchableOpacity
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    addDate();
+                    addDay();
                   }}
                   activeOpacity={0.7}
                   style={{
@@ -659,58 +691,151 @@ export default function PreviewScreen() {
                   <Ionicons name="add" size={16} color={Colors[colorScheme].text} />
                 </TouchableOpacity>
               </View>
-              
-              {selectedDates.map((date, index) => (
-                <View key={index} style={{ marginBottom: 12 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <TouchableOpacity
-                      onPress={() => {
-                        Haptics.selectionAsync();
-                        setEditingDateIndex(index);
-                        setIsDatePickerOpen(true);
-                      }}
-                      activeOpacity={0.7}
-                      style={{
-                        flex: 1,
-                        paddingVertical: 12,
-                        paddingHorizontal: 16,
-                        borderRadius: 12,
-                        backgroundColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
-                        borderWidth: errors.date ? 1 : 0,
-                        borderColor: errorColor,
-                      }}
-                    >
-                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+
+              <View style={{ gap: 12 }}>
+                {daySettings.map((day, index) => (
+                  <GlassView
+                    key={index}
+                    style={{
+                      borderRadius: 20,
+                      padding: 16,
+                      overflow: 'hidden',
+                    }}
+                    glassEffectStyle="regular"
+                  >
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                      <Text style={{
+                        color: textColor,
+                        fontSize: 14,
+                        fontWeight: '600',
+                        opacity: 0.7,
+                      }}>
+                        Day {index + 1}
+                      </Text>
+                      {daySettings.length > 1 && (
+                        <TouchableOpacity
+                          onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                            removeDay(index);
+                          }}
+                          activeOpacity={0.7}
+                          style={{
+                            padding: 6,
+                            borderRadius: 6,
+                            backgroundColor: colorScheme === 'dark' ? 'rgba(255, 0, 0, 0.2)' : 'rgba(255, 0, 0, 0.1)',
+                          }}
+                        >
+                          <Ionicons name="close" size={16} color="#EF4444" />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+
+                    {/* Date and All Day in one row */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: !day.isAllDay ? 12 : 0 }}>
+                      <View style={{ flex: 1 }}>
                         <Text style={{
                           color: textColor,
-                          fontSize: 16,
-                          fontWeight: '500',
+                          fontSize: 11,
+                          opacity: 0.7,
+                          marginBottom: 4,
                         }}>
-                          {formatDateOnly(date)}
+                          Date
                         </Text>
-                        <Ionicons name="calendar-outline" size={20} color={textColor} style={{ opacity: 0.7 }} />
+                        <Host style={{ minHeight: 36 }}>
+                          <DatePicker
+                            displayedComponents={["date"]}
+                            selection={day.date}
+                            onDateChange={(newDate: Date) => {
+                              updateDay(index, { date: newDate });
+                              if (errors.date) {
+                                setErrors(prev => ({ ...prev, date: undefined }));
+                              }
+                            }}
+                          />
+                        </Host>
                       </View>
-                    </TouchableOpacity>
-                    {selectedDates.length > 1 && (
-                      <TouchableOpacity
-                        onPress={() => {
-                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                          removeDate(index);
-                        }}
-                        activeOpacity={0.7}
-                        style={{
-                          padding: 8,
-                          borderRadius: 8,
-                          backgroundColor: colorScheme === 'dark' ? 'rgba(255, 0, 0, 0.2)' : 'rgba(255, 0, 0, 0.1)',
-                        }}
-                      >
-                        <Ionicons name="close" size={18} color="#EF4444" />
-                      </TouchableOpacity>
+                      <View style={{ paddingTop: 20 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <Text style={{
+                            color: textColor,
+                            fontSize: 11,
+                            opacity: 0.7,
+                          }}>
+                            All Day
+                          </Text>
+                          <Host matchContents>
+                            <Toggle
+                              isOn={day.isAllDay}
+                              onIsOnChange={(checked: boolean) => {
+                                updateDay(index, { 
+                                  isAllDay: checked,
+                                  startTime: checked ? null : (day.startTime || new Date()),
+                                  endTime: checked ? null : day.endTime,
+                                });
+                                if (errors.time) {
+                                  setErrors(prev => ({ ...prev, time: undefined }));
+                                }
+                              }}
+                              label="All Day"
+                            />
+                          </Host>
+                        </View>
+                      </View>
+                    </View>
+
+                    {/* Time Pickers - Only show if not all day, side by side */}
+                    {!day.isAllDay && (
+                      <View style={{ flexDirection: 'row', gap: 12 }}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{
+                            color: textColor,
+                            fontSize: 11,
+                            opacity: 0.7,
+                            marginBottom: 4,
+                          }}>
+                            Start Time
+                          </Text>
+                          <Host style={{ minHeight: 36 }}>
+                            <DatePicker
+                              displayedComponents={["hourAndMinute"]}
+                              selection={day.startTime || new Date()}
+                              onDateChange={(date: Date) => {
+                                updateDay(index, { startTime: date });
+                                if (errors.time) {
+                                  setErrors(prev => ({ ...prev, time: undefined }));
+                                }
+                              }}
+                            />
+                          </Host>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{
+                            color: textColor,
+                            fontSize: 11,
+                            opacity: 0.7,
+                            marginBottom: 4,
+                          }}>
+                            End Time
+                          </Text>
+                          <Host style={{ minHeight: 36 }}>
+                            <DatePicker
+                              displayedComponents={["hourAndMinute"]}
+                              selection={day.endTime || new Date()}
+                              onDateChange={(date: Date) => {
+                                updateDay(index, { endTime: date });
+                                if (errors.time) {
+                                  setErrors(prev => ({ ...prev, time: undefined }));
+                                }
+                              }}
+                            />
+                          </Host>
+                        </View>
+                      </View>
                     )}
-                  </View>
-                </View>
-              ))}
-              
+                  </GlassView>
+                ))}
+              </View>
+
               {errors.date && (
                 <Text style={{
                   color: errorColor,
@@ -720,94 +845,6 @@ export default function PreviewScreen() {
                   {errors.date}
                 </Text>
               )}
-
-              <Text style={{
-                color: textColor,
-                fontSize: 14,
-                fontWeight: '600',
-                marginTop: 20,
-                marginBottom: 12,
-                opacity: 0.7,
-              }}>
-                Event Times (Optional)
-              </Text>
-              
-              <View style={{ gap: 12 }}>
-                <TouchableOpacity
-                  onPress={() => {
-                    Haptics.selectionAsync();
-                    setIsEditingStartTime(true);
-                    setIsTimePickerOpen(true);
-                  }}
-                  activeOpacity={0.7}
-                  style={{
-                    paddingVertical: 12,
-                    paddingHorizontal: 16,
-                    borderRadius: 12,
-                    backgroundColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
-                    borderWidth: errors.time ? 1 : 0,
-                    borderColor: errorColor,
-                  }}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <View>
-                      <Text style={{
-                        color: textColor,
-                        fontSize: 12,
-                        opacity: 0.7,
-                        marginBottom: 4,
-                      }}>
-                        Start Time
-                      </Text>
-                      <Text style={{
-                        color: startTime ? textColor : placeholderColor,
-                        fontSize: 16,
-                        fontWeight: startTime ? '500' : '400',
-                      }}>
-                        {startTime ? formatTime(startTime) : 'Select start time'}
-                      </Text>
-                    </View>
-                    <Ionicons name="time-outline" size={20} color={textColor} style={{ opacity: 0.7 }} />
-                  </View>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() => {
-                    Haptics.selectionAsync();
-                    setIsEditingEndTime(true);
-                    setIsTimePickerOpen(true);
-                  }}
-                  activeOpacity={0.7}
-                  style={{
-                    paddingVertical: 12,
-                    paddingHorizontal: 16,
-                    borderRadius: 12,
-                    backgroundColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
-                  }}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <View>
-                      <Text style={{
-                        color: textColor,
-                        fontSize: 12,
-                        opacity: 0.7,
-                        marginBottom: 4,
-                      }}>
-                        End Time
-                      </Text>
-                      <Text style={{
-                        color: endTime ? textColor : placeholderColor,
-                        fontSize: 16,
-                        fontWeight: endTime ? '500' : '400',
-                      }}>
-                        {endTime ? formatTime(endTime) : 'Select end time'}
-                      </Text>
-                    </View>
-                    <Ionicons name="time-outline" size={20} color={textColor} style={{ opacity: 0.7 }} />
-                  </View>
-                </TouchableOpacity>
-              </View>
-              
               {errors.time && (
                 <Text style={{
                   color: errorColor,
@@ -817,7 +854,7 @@ export default function PreviewScreen() {
                   {errors.time}
                 </Text>
               )}
-            </GlassView>
+            </View>
 
             {/* Location Field */}
             <GlassView
@@ -1276,112 +1313,6 @@ export default function PreviewScreen() {
         </SafeAreaView>
       </KeyboardAvoidingView>
 
-      {/* Date Picker Bottom Sheet */}
-      {isDatePickerOpen && editingDateIndex !== null && (
-        <Host style={{ position: 'absolute', width, height, zIndex: 1000, pointerEvents: 'box-none' }}>
-          <BottomSheet
-            isPresented={isDatePickerOpen}
-            onIsPresentedChange={(isOpen: boolean) => {
-              setIsDatePickerOpen(isOpen);
-              if (!isOpen) setEditingDateIndex(null);
-            }}
-            fitToContents
-          >
-            <View style={{
-              paddingTop: 20,
-              paddingBottom: insets.bottom + 20,
-              paddingHorizontal: 20,
-              borderTopLeftRadius: 20,
-              borderTopRightRadius: 20,
-              minHeight: height * 0.45,
-            }}>
-              <View 
-                style={{
-                  marginBottom: 20,
-                }}
-              >
-                <Text style={{
-                  color: textColor,
-                  fontSize: 18,
-                  fontWeight: '700',
-                }}>
-                  Select Date {selectedDates.length > 1 ? `(${editingDateIndex! + 1})` : ''}
-                </Text>
-              </View>
-              <Host style={{ minHeight: 200 }}>
-                <DatePicker
-                  displayedComponents={["date"]}
-                  selection={selectedDates[editingDateIndex!] || new Date()}
-                  onDateChange={(date: Date) => {
-                    updateDate(editingDateIndex!, date);
-                    // Clear error when user selects date
-                    if (errors.date) {
-                      setErrors(prev => ({ ...prev, date: undefined }));
-                    }
-                  }}
-                />
-              </Host>
-            </View>
-          </BottomSheet>
-        </Host>
-      )}
-
-      {/* Time Picker Bottom Sheet */}
-      {isTimePickerOpen && (isEditingStartTime || isEditingEndTime) && (
-        <Host style={{ position: 'absolute', width, height, zIndex: 1000, pointerEvents: 'box-none' }}>
-          <BottomSheet
-            isPresented={isTimePickerOpen}
-            onIsPresentedChange={(isOpen: boolean) => {
-              setIsTimePickerOpen(isOpen);
-              if (!isOpen) {
-                setIsEditingStartTime(false);
-                setIsEditingEndTime(false);
-              }
-            }}
-            fitToContents
-          >
-            <View style={{
-              paddingTop: 20,
-              paddingBottom: insets.bottom + 20,
-              paddingHorizontal: 20,
-              borderTopLeftRadius: 20,
-              borderTopRightRadius: 20,
-              minHeight: height * 0.4,
-            }}>
-              <View 
-                style={{
-                  marginBottom: 20,
-                }}
-              >
-                <Text style={{
-                  color: textColor,
-                  fontSize: 18,
-                  fontWeight: '700',
-                }}>
-                  Select {isEditingStartTime ? 'Start' : 'End'} Time
-                </Text>
-              </View>
-              <Host style={{ minHeight: 200 }}>
-                <DatePicker
-                  displayedComponents={["hourAndMinute"]}
-                  selection={(isEditingStartTime ? startTime : endTime) || new Date()}
-                  onDateChange={(date: Date) => {
-                    if (isEditingStartTime) {
-                      setStartTime(date);
-                    } else {
-                      setEndTime(date);
-                    }
-                    // Clear error when user selects time
-                    if (errors.time) {
-                      setErrors(prev => ({ ...prev, time: undefined }));
-                    }
-                  }}
-                />
-              </Host>
-            </View>
-          </BottomSheet>
-        </Host>
-      )}
     </SafeAreaView>
   );
 }

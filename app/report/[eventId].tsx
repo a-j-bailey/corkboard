@@ -1,4 +1,5 @@
-import { Host, Picker } from '@expo/ui/swift-ui';
+import { Host, Picker, Text as SwiftUIText } from '@expo/ui/swift-ui';
+import { pickerStyle, tag } from '@expo/ui/swift-ui/modifiers';
 import { GlassView } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -44,12 +45,10 @@ export default function ReportScreen() {
   const backgroundColor = Colors[colorScheme].background;
   const tintColor = Colors[colorScheme].tint;
   
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<ReportCategory | null>(null);
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ category?: string; description?: string }>({});
-
-  const selectedCategory = selectedIndex !== null ? REPORT_CATEGORIES[selectedIndex] : null;
 
   const event = events.find((e) => e.id === eventId);
 
@@ -117,8 +116,8 @@ export default function ReportScreen() {
     }
   };
 
-  const handleCategorySelect = (index: number) => {
-    setSelectedIndex(index);
+  const handleCategorySelect = (category: ReportCategory) => {
+    setSelectedCategory(category);
     if (errors.category) {
       setErrors((prev) => ({ ...prev, category: undefined }));
     }
@@ -213,20 +212,24 @@ export default function ReportScreen() {
             <GlassView
               style={{
                 borderRadius: 16,
+                padding: 12,
                 overflow: 'hidden',
-                minHeight: 200,
               }}
               glassEffectStyle="regular"
             >
-              <Host style={{ height: 200 }}>
+              <Host matchContents={{vertical: true}}>
                 <Picker
-                  selection={selectedIndex !== null ? selectedIndex : 0}
-                  onSelectionChange={(selection: number | string) => {
-                    handleCategorySelect(typeof selection === 'number' ? selection : parseInt(selection as string, 10));
+                  modifiers={[pickerStyle('menu')]}
+                  label="Select a category"
+                  selection={selectedCategory || REPORT_CATEGORIES[0]}
+                  onSelectionChange={(selection: ReportCategory) => {
+                    handleCategorySelect(selection);
                   }}
                 >
-                  {REPORT_CATEGORIES.map((category, index) => (
-                    <Picker.Item key={index} value={index} label={category} />
+                  {REPORT_CATEGORIES.map((category) => (
+                    <SwiftUIText key={category} modifiers={[tag(category)]}>
+                      {category}
+                    </SwiftUIText>
                   ))}
                 </Picker>
               </Host>
