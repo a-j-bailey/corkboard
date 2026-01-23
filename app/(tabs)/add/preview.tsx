@@ -1,4 +1,4 @@
-import { BottomSheet, DateTimePicker, Host, Switch, TextField } from '@expo/ui/swift-ui';
+import { BottomSheet, DatePicker, Host, TextField, Toggle } from '@expo/ui/swift-ui';
 import { Ionicons } from '@expo/vector-icons';
 import { GlassView } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
@@ -898,9 +898,9 @@ export default function PreviewScreen() {
                   )}
                 </View>
                 <Host matchContents>
-                  <Switch
-                    value={!isFree}
-                    onValueChange={(checked) => {
+                  <Toggle
+                    isOn={!isFree}
+                    onIsOnChange={(checked: boolean) => {
                       setIsFree(!checked);
                       if (!checked) {
                         setCost('Free');
@@ -912,7 +912,6 @@ export default function PreviewScreen() {
                       }
                     }}
                     label="Has Price"
-                    variant="switch"
                   />
                 </Host>
               </View>
@@ -1281,12 +1280,12 @@ export default function PreviewScreen() {
       {isDatePickerOpen && editingDateIndex !== null && (
         <Host style={{ position: 'absolute', width, height, zIndex: 1000, pointerEvents: 'box-none' }}>
           <BottomSheet
-            isOpened={isDatePickerOpen}
-            onIsOpenedChange={(isOpen) => {
+            isPresented={isDatePickerOpen}
+            onIsPresentedChange={(isOpen: boolean) => {
               setIsDatePickerOpen(isOpen);
               if (!isOpen) setEditingDateIndex(null);
             }}
-            presentationDetents={[0.3, 'large']}
+            fitToContents
           >
             <View style={{
               paddingTop: 20,
@@ -1310,13 +1309,11 @@ export default function PreviewScreen() {
                 </Text>
               </View>
               <Host style={{ minHeight: 200 }}>
-                <DateTimePicker
-                  displayedComponents="date"
-                  variant="wheel"
-                  initialDate={selectedDates[editingDateIndex!]?.toISOString() || new Date().toISOString()}
-                  onDateSelected={(date) => {
-                    const dateObj = new Date(date);
-                    updateDate(editingDateIndex!, dateObj);
+                <DatePicker
+                  displayedComponents={["date"]}
+                  selection={selectedDates[editingDateIndex!] || new Date()}
+                  onDateChange={(date: Date) => {
+                    updateDate(editingDateIndex!, date);
                     // Clear error when user selects date
                     if (errors.date) {
                       setErrors(prev => ({ ...prev, date: undefined }));
@@ -1333,15 +1330,15 @@ export default function PreviewScreen() {
       {isTimePickerOpen && (isEditingStartTime || isEditingEndTime) && (
         <Host style={{ position: 'absolute', width, height, zIndex: 1000, pointerEvents: 'box-none' }}>
           <BottomSheet
-            isOpened={isTimePickerOpen}
-            onIsOpenedChange={(isOpen) => {
+            isPresented={isTimePickerOpen}
+            onIsPresentedChange={(isOpen: boolean) => {
               setIsTimePickerOpen(isOpen);
               if (!isOpen) {
                 setIsEditingStartTime(false);
                 setIsEditingEndTime(false);
               }
             }}
-            presentationDetents={[0.3, 'large']}
+            fitToContents
           >
             <View style={{
               paddingTop: 20,
@@ -1365,16 +1362,14 @@ export default function PreviewScreen() {
                 </Text>
               </View>
               <Host style={{ minHeight: 200 }}>
-                <DateTimePicker
-                  displayedComponents="hourAndMinute"
-                  variant="wheel"
-                  initialDate={(isEditingStartTime ? startTime : endTime)?.toISOString() || new Date().toISOString()}
-                  onDateSelected={(date) => {
-                    const dateObj = new Date(date);
+                <DatePicker
+                  displayedComponents={["hourAndMinute"]}
+                  selection={(isEditingStartTime ? startTime : endTime) || new Date()}
+                  onDateChange={(date: Date) => {
                     if (isEditingStartTime) {
-                      setStartTime(dateObj);
+                      setStartTime(date);
                     } else {
-                      setEndTime(dateObj);
+                      setEndTime(date);
                     }
                     // Clear error when user selects time
                     if (errors.time) {

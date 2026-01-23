@@ -1,4 +1,4 @@
-import { Button, ContextMenu, Host } from '@expo/ui/swift-ui';
+import { Button, Host, Menu } from '@expo/ui/swift-ui';
 import { Ionicons } from '@expo/vector-icons';
 import { GlassView } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
@@ -22,6 +22,7 @@ import { useEvents } from '../../contexts/EventContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useUser } from '../../contexts/UserContext';
 import { formatDateOnly, formatEventDates, formatTime } from '../../utils/dateFormatter';
+import { labelStyle } from '@expo/ui/swift-ui/modifiers';
 
 export default function EventDetailRoute() {
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -48,7 +49,7 @@ export default function EventDetailRoute() {
 
   const handleBookmark = async () => {
     if (!user || !event) return;
-    
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
       await toggleBookmark(event.id);
@@ -238,10 +239,10 @@ export default function EventDetailRoute() {
               }}
               glassEffectStyle="regular"
             >
-              <Ionicons 
-                name={event?.isBookmarked ? "bookmark" : "bookmark-outline"} 
-                size={24} 
-                color={event?.isBookmarked ? bookmarkGoldColor : textColor} 
+              <Ionicons
+                name={event?.isBookmarked ? "bookmark" : "bookmark-outline"}
+                size={24}
+                color={event?.isBookmarked ? bookmarkGoldColor : textColor}
               />
             </GlassView>
           </TouchableOpacity>
@@ -249,17 +250,8 @@ export default function EventDetailRoute() {
 
         {/* More Button with Dropdown */}
         <Host style={{ width: 44, height: 44, borderRadius: 22, overflow: 'hidden' }}>
-          <ContextMenu>
-            <ContextMenu.Items>
-              <Button
-                systemImage="exclamationmark.triangle"
-                onPress={handleReport}
-                role="destructive"
-              >
-                Report
-              </Button>
-            </ContextMenu.Items>
-            <ContextMenu.Trigger>
+          <Menu
+            label={
               <GlassView
                 style={{
                   width: 44,
@@ -271,16 +263,27 @@ export default function EventDetailRoute() {
                 }}
                 glassEffectStyle="regular"
               >
-                <Ionicons name="ellipsis-horizontal" size={24} color={textColor} />
+                <Ionicons
+                  name="ellipsis-horizontal"
+                  size={24}
+                  color={textColor}
+                />
               </GlassView>
-            </ContextMenu.Trigger>
-          </ContextMenu>
+            }
+          >
+            <Button
+              label="Report"
+              systemImage="exclamationmark.triangle"
+              onPress={handleReport}
+              role="destructive"
+            />
+          </Menu>
         </Host>
       </View>
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingBottom: insets.bottom, paddingTop: insets.top}}
+        contentContainerStyle={{ paddingBottom: insets.bottom, paddingTop: insets.top }}
         showsVerticalScrollIndicator={false}
       >
         {/* Poster Image - 2:3 aspect ratio, centered with padding */}

@@ -1,5 +1,5 @@
 import { Colors } from '@/constants/theme';
-import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
+import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { StatusBar } from 'expo-status-bar';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useUser } from '../../contexts/UserContext';
@@ -12,19 +12,17 @@ export default function TabsLayout() {
     <>
       <NativeTabs tintColor={Colors[colorScheme].tint}>
         <NativeTabs.Trigger name="index">
-          <Icon sf="square.grid.2x2.fill" />
-          <Label>Board</Label>
+          <NativeTabs.Trigger.Icon sf="square.grid.2x2.fill" />
+          <NativeTabs.Trigger.Label>Board</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="profile">
-          <Icon sf="person.fill" />
-          <Label>Profile</Label>
+          <NativeTabs.Trigger.Icon sf="person.fill" />
+          <NativeTabs.Trigger.Label>Profile</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
-        {user && (
-          <NativeTabs.Trigger name="add" role="search">
-            <Icon sf="pin.fill" />
-            <Label>Add</Label>
-          </NativeTabs.Trigger>
-        )}
+        <NativeTabs.Trigger name="add" role="search" hidden={!user}>
+          <NativeTabs.Trigger.Icon sf="pin.fill" />
+          <NativeTabs.Trigger.Label>Add</NativeTabs.Trigger.Label>
+        </NativeTabs.Trigger>
       </NativeTabs>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
     </>

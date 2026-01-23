@@ -35,12 +35,84 @@ npm run reset-project
 
 This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
 
+## Building for iOS Device
+
+### Option 1: EAS Build (Recommended - Cloud Build)
+
+This is the easiest way to build for a physical iOS device. EAS Build handles code signing and builds your app in the cloud.
+
+1. **Install EAS CLI** (if not already installed):
+   ```bash
+   npm install -g eas-cli
+   ```
+
+2. **Login to your Expo account**:
+   ```bash
+   eas login
+   ```
+
+3. **Configure your project** (first time only):
+   ```bash
+   eas build:configure
+   ```
+
+4. **Build for iOS device**:
+   ```bash
+   eas build --platform ios --profile preview
+   ```
+   
+   For a production build:
+   ```bash
+   eas build --platform ios --profile production
+   ```
+
+5. **Install on your device**:
+   - After the build completes, you'll get a download link
+   - Open the link on your iOS device and install the app
+   - You may need to trust the developer certificate in Settings > General > VPN & Device Management
+
+### Option 2: Local Build (Requires Xcode)
+
+If you have Xcode installed and want to build locally:
+
+1. **Install CocoaPods dependencies**:
+   ```bash
+   cd ios && pod install && cd ..
+   ```
+
+2. **Build and run on connected device**:
+   ```bash
+   npm run ios -- --device
+   ```
+   
+   Or specify a device:
+   ```bash
+   npx expo run:ios --device
+   ```
+
+3. **Open in Xcode** (for more control):
+   ```bash
+   npx expo prebuild
+   ```
+   Then open `ios/corkboard.xcworkspace` in Xcode and build/run from there.
+
+### Development Build for Testing
+
+To create a development build that you can use with `expo start`:
+
+```bash
+eas build --platform ios --profile development
+```
+
+After installing the development build on your device, you can run `npx expo start --dev-client` to connect to it.
+
 ## Learn more
 
 To learn more about developing your project with Expo, look at the following resources:
 
 - [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
 - [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+- [EAS Build documentation](https://docs.expo.dev/build/introduction/): Learn more about building your app with EAS Build.
 
 ## Join the community
 

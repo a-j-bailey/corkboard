@@ -139,7 +139,12 @@ export async function getUserBookmarks(userId: string): Promise<Event[]> {
       })
       .filter((event: Event | null): event is Event => event !== null);
 
-    return events;
+    // Filter out events with pending or confirmed reports
+    const { getEventIdsWithActiveReports } = await import('./reportService');
+    const reportedEventIds = await getEventIdsWithActiveReports();
+    const filteredEvents = events.filter((event) => !reportedEventIds.has(event.id));
+
+    return filteredEvents;
   } catch (error) {
     console.error('[BookmarkService] Error fetching user bookmarks:', error);
     throw error;

@@ -220,13 +220,15 @@ export default function ReportScreen() {
             >
               <Host style={{ height: 200 }}>
                 <Picker
-                  options={[...REPORT_CATEGORIES]}
-                  selectedIndex={selectedIndex !== null ? selectedIndex : 0}
-                  onOptionSelected={({ nativeEvent: { index } }) => {
-                    handleCategorySelect(index);
+                  selection={selectedIndex !== null ? selectedIndex : 0}
+                  onSelectionChange={(selection: number | string) => {
+                    handleCategorySelect(typeof selection === 'number' ? selection : parseInt(selection as string, 10));
                   }}
-                  variant="wheel"
-                />
+                >
+                  {REPORT_CATEGORIES.map((category, index) => (
+                    <Picker.Item key={index} value={index} label={category} />
+                  ))}
+                </Picker>
               </Host>
             </GlassView>
             {errors.category && (

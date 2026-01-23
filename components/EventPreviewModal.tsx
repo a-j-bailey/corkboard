@@ -41,10 +41,22 @@ export default function EventPreviewModal({
   const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
   
   const [title, setTitle] = useState(eventData.title || '');
-  const [date, setDate] = useState(eventData.date || '');
-  const [time, setTime] = useState(eventData.time || '');
+  const [date, setDate] = useState(
+    eventData.dates && eventData.dates.length > 0 
+      ? new Date(eventData.dates[0].start).toISOString().split('T')[0]
+      : ''
+  );
+  const [time, setTime] = useState(
+    eventData.dates && eventData.dates.length > 0
+      ? new Date(eventData.dates[0].start).toTimeString().slice(0, 5)
+      : ''
+  );
   const [address, setAddress] = useState(eventData.address || '');
-  const [cost, setCost] = useState(eventData.cost || '');
+  const [cost, setCost] = useState(
+    eventData.price !== null && eventData.price !== undefined
+      ? eventData.price === 0 ? 'Free' : eventData.price.toString()
+      : ''
+  );
   const [websiteUrl, setWebsiteUrl] = useState(eventData.websiteUrl || '');
   const [description, setDescription] = useState(eventData.description || '');
   const [organizationName, setOrganizationName] = useState(eventData.organizationName || '');
@@ -684,8 +696,8 @@ export default function EventPreviewModal({
   return (
     <Host style={{ position: 'absolute', width, height, zIndex: 1000, pointerEvents: 'box-none' }}>
       <BottomSheet
-        isOpened={isBottomSheetOpen}
-        onIsOpenedChange={handleBottomSheetClose}
+        isPresented={isBottomSheetOpen}
+        onIsPresentedChange={handleBottomSheetClose}
       >
         {renderContent()}
       </BottomSheet>

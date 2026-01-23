@@ -1,4 +1,5 @@
-import { Button, ContextMenu, Host } from '@expo/ui/swift-ui';
+import { Button, Host, Menu } from '@expo/ui/swift-ui';
+import { labelStyle } from '@expo/ui/swift-ui/modifiers';
 import { Ionicons } from '@expo/vector-icons';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { GlassView } from 'expo-glass-effect';
@@ -111,37 +112,23 @@ export default function ProfileScreen() {
                 </ThemedText>
               </View>
 
-              {/* Context Menu */}
+              {/* Menu */}
               <Host style={{ width: 44, height: 44, borderRadius: 22, overflow: 'hidden' }}>
-                <ContextMenu>
-                  <ContextMenu.Items>
-                    <Button
-                      systemImage="rectangle.portrait.and.arrow.right"
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                        signOut();
-                      }}
-                      role="destructive"
-                    >
-                      Sign Out
-                    </Button>
-                  </ContextMenu.Items>
-                  <ContextMenu.Trigger>
-                    <GlassView
-                      style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: 22,
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        overflow: 'hidden',
-                      }}
-                      glassEffectStyle="regular"
-                    >
-                      <Ionicons name="ellipsis-horizontal" size={24} color={textColor} />
-                    </GlassView>
-                  </ContextMenu.Trigger>
-                </ContextMenu>
+                <Menu
+                  systemImage="ellipsis"
+                  modifiers={[labelStyle('iconOnly')]}
+                  label={<Button systemImage="ellipsis" modifiers={[labelStyle('iconOnly')]} label="Menu Options" />}
+                >
+                  <Button
+                    label="Sign Out"
+                    systemImage="rectangle.portrait.and.arrow.right"
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      signOut();
+                    }}
+                    role="destructive"
+                  />
+                </Menu>
               </Host>
             </View>
           </GlassView>
