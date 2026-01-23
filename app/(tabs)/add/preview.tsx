@@ -164,7 +164,7 @@ export default function PreviewScreen() {
   const textColor = Colors[colorScheme].text;
   const tintColor = Colors[colorScheme].tint;
   const [isSaving, setIsSaving] = useState(false);
-  
+
   // Get params from route
   const params = useLocalSearchParams<{
     eventData?: string;
@@ -180,7 +180,7 @@ export default function PreviewScreen() {
   } catch (error) {
     console.error('[PreviewScreen] Error parsing event data from params:', error);
   }
-  
+
   const posterImageUri = params.posterImageUri || undefined;
 
   // Helper function to extract initial day settings from EventDate array
@@ -282,7 +282,7 @@ export default function PreviewScreen() {
   useEffect(() => {
     const daySettings = extractInitialDaySettings(initialEventData);
     const priceStr = extractPriceString(initialEventData);
-    
+
     setTitle(initialEventData.title || '');
     setDaySettings(daySettings);
     setAddress(initialEventData.address || '');
@@ -406,11 +406,11 @@ export default function PreviewScreen() {
             day.startTime ? day.startTime.getMinutes() : 0,
             0, 0
           );
-          
+
           const eventDateItem: EventDate = {
             start: startDateTime.toISOString(),
           };
-          
+
           // Add end time if provided
           if (day.endTime) {
             const endDateTime = new Date(
@@ -423,7 +423,7 @@ export default function PreviewScreen() {
             );
             eventDateItem.end = endDateTime.toISOString();
           }
-          
+
           return eventDateItem;
         }
       });
@@ -440,7 +440,7 @@ export default function PreviewScreen() {
       let locationName: string | undefined;
       let latitude: number | undefined;
       let longitude: number | undefined;
-      
+
       if (address.trim()) {
         try {
           const geocoded = await geocodeLocation(address.trim());
@@ -517,14 +517,14 @@ export default function PreviewScreen() {
     } else {
       newDate = new Date();
     }
-    
+
     const newDay: DaySettings = {
       date: newDate,
       startTime: null,
       endTime: null,
       isAllDay: true,
     };
-    
+
     setDaySettings([...daySettings, newDay]);
   };
 
@@ -730,44 +730,47 @@ export default function PreviewScreen() {
                       )}
                     </View>
 
-                    {/* Date and All Day in one row */}
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: !day.isAllDay ? 12 : 0 }}>
-                      <View style={{ flex: 1 }}>
+                    <View style={{ gap: 12 }}>
+                      {/* Date row */}
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                         <Text style={{
                           color: textColor,
-                          fontSize: 11,
-                          opacity: 0.7,
-                          marginBottom: 4,
+                          fontSize: 14,
+                          fontWeight: '600',
                         }}>
-                          Date
+                          Date:
                         </Text>
-                        <Host style={{ minHeight: 36 }}>
-                          <DatePicker
-                            displayedComponents={["date"]}
-                            selection={day.date}
-                            onDateChange={(newDate: Date) => {
-                              updateDay(index, { date: newDate });
-                              if (errors.date) {
-                                setErrors(prev => ({ ...prev, date: undefined }));
-                              }
-                            }}
-                          />
-                        </Host>
+                        <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                          <Host matchContents>
+                            <DatePicker
+                              displayedComponents={["date"]}
+                              selection={day.date}
+                              onDateChange={(newDate: Date) => {
+                                updateDay(index, { date: newDate });
+                                if (errors.date) {
+                                  setErrors(prev => ({ ...prev, date: undefined }));
+                                }
+                              }}
+                            />
+                          </Host>
+                        </View>
                       </View>
-                      <View style={{ paddingTop: 20 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                          <Text style={{
-                            color: textColor,
-                            fontSize: 11,
-                            opacity: 0.7,
-                          }}>
-                            All Day
-                          </Text>
+
+                      {/* All Day row */}
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Text style={{
+                          color: textColor,
+                          fontSize: 14,
+                          fontWeight: '600',
+                        }}>
+                          All Day:
+                        </Text>
+                        <View style={{ flex: 1, alignItems: 'flex-end' }}>
                           <Host matchContents>
                             <Toggle
                               isOn={day.isAllDay}
                               onIsOnChange={(checked: boolean) => {
-                                updateDay(index, { 
+                                updateDay(index, {
                                   isAllDay: checked,
                                   startTime: checked ? null : (day.startTime || new Date()),
                                   endTime: checked ? null : day.endTime,
@@ -781,57 +784,61 @@ export default function PreviewScreen() {
                           </Host>
                         </View>
                       </View>
-                    </View>
 
-                    {/* Time Pickers - Only show if not all day, side by side */}
-                    {!day.isAllDay && (
-                      <View style={{ flexDirection: 'row', gap: 12 }}>
-                        <View style={{ flex: 1 }}>
+                      {/* Start Time row - Only show if not all day */}
+                      {!day.isAllDay && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                           <Text style={{
                             color: textColor,
-                            fontSize: 11,
-                            opacity: 0.7,
-                            marginBottom: 4,
+                            fontSize: 14,
+                            fontWeight: '600',
                           }}>
-                            Start Time
+                            Start:
                           </Text>
-                          <Host style={{ minHeight: 36 }}>
-                            <DatePicker
-                              displayedComponents={["hourAndMinute"]}
-                              selection={day.startTime || new Date()}
-                              onDateChange={(date: Date) => {
-                                updateDay(index, { startTime: date });
-                                if (errors.time) {
-                                  setErrors(prev => ({ ...prev, time: undefined }));
-                                }
-                              }}
-                            />
-                          </Host>
+                          <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                            <Host matchContents>
+                              <DatePicker
+                                displayedComponents={["hourAndMinute"]}
+                                selection={day.startTime || new Date()}
+                                onDateChange={(date: Date) => {
+                                  updateDay(index, { startTime: date });
+                                  if (errors.time) {
+                                    setErrors(prev => ({ ...prev, time: undefined }));
+                                  }
+                                }}
+                              />
+                            </Host>
+                          </View>
                         </View>
-                        <View style={{ flex: 1 }}>
+                      )}
+
+                      {/* End Time row - Only show if not all day */}
+                      {!day.isAllDay && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                           <Text style={{
                             color: textColor,
-                            fontSize: 11,
-                            opacity: 0.7,
-                            marginBottom: 4,
+                            fontSize: 14,
+                            fontWeight: '600',
                           }}>
-                            End Time
+                            End:
                           </Text>
-                          <Host style={{ minHeight: 36 }}>
-                            <DatePicker
-                              displayedComponents={["hourAndMinute"]}
-                              selection={day.endTime || new Date()}
-                              onDateChange={(date: Date) => {
-                                updateDay(index, { endTime: date });
-                                if (errors.time) {
-                                  setErrors(prev => ({ ...prev, time: undefined }));
-                                }
-                              }}
-                            />
-                          </Host>
+                          <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                            <Host matchContents>
+                              <DatePicker
+                                displayedComponents={["hourAndMinute"]}
+                                selection={day.endTime || new Date()}
+                                onDateChange={(date: Date) => {
+                                  updateDay(index, { endTime: date });
+                                  if (errors.time) {
+                                    setErrors(prev => ({ ...prev, time: undefined }));
+                                  }
+                                }}
+                              />
+                            </Host>
+                          </View>
                         </View>
-                      </View>
-                    )}
+                      )}
+                    </View>
                   </GlassView>
                 ))}
               </View>
@@ -952,7 +959,7 @@ export default function PreviewScreen() {
                   />
                 </Host>
               </View>
-              
+
               {!isFree && (
                 <>
                   <TextInput
@@ -962,7 +969,7 @@ export default function PreviewScreen() {
                       const numericValue = text.replace(/[^0-9.]/g, '');
                       // Ensure only one decimal point
                       const parts = numericValue.split('.');
-                      const filtered = parts.length > 2 
+                      const filtered = parts.length > 2
                         ? parts[0] + '.' + parts.slice(1).join('')
                         : numericValue;
                       setCost(filtered);
