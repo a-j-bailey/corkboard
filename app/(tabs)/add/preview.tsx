@@ -18,6 +18,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LocationAutocomplete } from '@julekgwa/react-native-places-autocomplete';
+import type { LocationSuggestion } from '@julekgwa/react-native-places-autocomplete';
 import { XSymbol } from '../../../components/XSymbol';
 import { Colors } from '../../../constants/theme';
 import { Event, EventDate, SocialMediaHandles, useEvents } from '../../../contexts/EventContext';
@@ -265,6 +267,8 @@ export default function PreviewScreen() {
   const [title, setTitle] = useState(initialEventData.title || '');
   const [daySettings, setDaySettings] = useState<DaySettings[]>(initialDaySettings);
   const [address, setAddress] = useState(initialEventData.address || '');
+  const [selectedLatitude, setSelectedLatitude] = useState<number | undefined>(initialEventData.latitude);
+  const [selectedLongitude, setSelectedLongitude] = useState<number | undefined>(initialEventData.longitude);
   const [cost, setCost] = useState(initialPrice);
   const [isFree, setIsFree] = useState(initialPrice === 'Free' || initialEventData.price === 0);
   const [websiteUrl, setWebsiteUrl] = useState(initialEventData.websiteUrl || '');
@@ -436,12 +440,18 @@ export default function PreviewScreen() {
         price = parsePriceToNumber(cost.trim() || undefined);
       }
 
-      // Geocode location if provided
+      // Use coordinates from autocomplete if available, otherwise geocode
       let locationName: string | undefined;
       let latitude: number | undefined;
       let longitude: number | undefined;
 
-      if (address.trim()) {
+      // If we have coordinates from autocomplete, use them directly
+      if (selectedLatitude !== undefined && selectedLongitude !== undefined) {
+        latitude = selectedLatitude;
+        longitude = selectedLongitude;
+        locationName = address.trim() || undefined;
+      } else if (address.trim()) {
+        // Otherwise, try to geocode the address
         try {
           const geocoded = await geocodeLocation(address.trim());
           if (geocoded) {
@@ -881,19 +891,87 @@ export default function PreviewScreen() {
               }}>
                 Location
               </Text>
-              <Host matchContents>
-                <TextField
-                  defaultValue={address}
-                  onChangeText={(text) => {
-                    setAddress(text);
-                    if (errors.address) {
-                      setErrors(prev => ({ ...prev, address: undefined }));
-                    }
-                  }}
-                  placeholder="Enter event location or address"
-                  multiline
-                />
-              </Host>
+              <LocationAutocomplete
+                provider="openstreetmap"
+                placeholder="Search for a location..."
+                queryOptions={{
+                  limit: 10,
+                }}
+                onLocationSelect={(location: LocationSuggestion) => {
+                const displayName = location.display_name || '';
+                setAddress(displayName);
+                // Extract coordinates if available (lat/lon may be strings, so parse them)
+                if (location.lat !== undefined && location.lon !== undefined) {
+                  const lat = typeof location.lat === 'string' ? parseFloat(location.lat) : location.lat;
+                  const lon = typeof location.lon === 'string' ? parseFloat(location.lon) : location.lon;
+                  if (!isNaN(lat) && !isNaN(lon)) {
+                    setSelectedLatitude(lat);
+                    setSelectedLongitude(lon);
+                  } else {
+                    setSelectedLatitude(undefined);
+                    setSelectedLongitude(undefined);
+                  }
+                } else {
+                  // Clear coordinates if not available
+                  setSelectedLatitude(undefined);
+                  setSelectedLongitude(undefined);
+                }
+                if (errors.address) {
+                  setErrors(prev => ({ ...prev, address: undefined }));
+                }
+              }}
+                onQueryChange={(query: string) => {
+                  // Allow manual typing - clear coordinates when user types manually
+                  if (query !== address) {
+                    setSelectedLatitude(undefined);
+                    setSelectedLongitude(undefined);
+                  }
+                  setAddress(query);
+                  if (errors.address) {
+                    setErrors(prev => ({ ...prev, address: undefined }));
+                  }
+                }}
+                debounceMs={300}
+                showRecentSearches={true}
+                containerStyle={{
+                  backgroundColor: 'transparent',
+                }}
+                inputContainerStyle={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  borderWidth: 0,
+                  borderRadius: 12,
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                }}
+                inputStyle={{
+                  fontSize: 16,
+                  color: textColor,
+                } as any}
+                suggestionStyle={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                  borderRadius: 12,
+                  padding: 16,
+                  marginVertical: 6,
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 255, 255, 0.1)',
+                }}
+                textStyle={{
+                  color: textColor,
+                  fontSize: 16,
+                  fontWeight: '500',
+                }}
+                theme={{
+                  colors: {
+                    primary: tintColor,
+                    onSurface: textColor,
+                    onSurfaceVariant: textColor + 'CC', // 80% opacity
+                    surface: 'rgba(255, 255, 255, 0.05)',
+                    background: 'rgba(0, 0, 0, 0.4)',
+                    outline: 'rgba(255, 255, 255, 0.15)',
+                    shadow: 'rgba(0, 0, 0, 0.2)',
+                  },
+                }}
+              />
               {errors.address && (
                 <Text style={{
                   color: errorColor,

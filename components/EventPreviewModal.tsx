@@ -15,6 +15,8 @@ import {
   useWindowDimensions
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LocationAutocomplete } from '@julekgwa/react-native-places-autocomplete';
+import type { LocationSuggestion } from '@julekgwa/react-native-places-autocomplete';
 import { Event, SocialMediaHandles, useEvents } from '../contexts/EventContext';
 import { parseDates, parsePriceToNumber } from '../services/eventParser';
 import { geocodeLocation } from '../services/geocodingService';
@@ -52,6 +54,8 @@ export default function EventPreviewModal({
       : ''
   );
   const [address, setAddress] = useState(eventData.address || '');
+  const [selectedLatitude, setSelectedLatitude] = useState<number | undefined>(eventData.latitude);
+  const [selectedLongitude, setSelectedLongitude] = useState<number | undefined>(eventData.longitude);
   const [cost, setCost] = useState(
     eventData.price !== null && eventData.price !== undefined
       ? eventData.price === 0 ? 'Free' : eventData.price.toString()
@@ -137,6 +141,8 @@ export default function EventPreviewModal({
     setDate(newDate);
     setTime(newTime);
     setAddress(newAddress);
+    setSelectedLatitude(eventData.latitude);
+    setSelectedLongitude(eventData.longitude);
     setCost(newCost);
     setWebsiteUrl(newWebsiteUrl);
     setDescription(newDescription);
@@ -189,12 +195,18 @@ export default function EventPreviewModal({
 
       const price = parsePriceToNumber(cost.trim() || undefined);
 
-      // Geocode location if provided
+      // Use coordinates from autocomplete if available, otherwise geocode
       let locationName: string | undefined;
       let latitude: number | undefined;
       let longitude: number | undefined;
-      
-      if (address.trim()) {
+
+      // If we have coordinates from autocomplete, use them directly
+      if (selectedLatitude !== undefined && selectedLongitude !== undefined) {
+        latitude = selectedLatitude;
+        longitude = selectedLongitude;
+        locationName = address.trim() || undefined;
+      } else if (address.trim()) {
+        // Otherwise, try to geocode the address
         try {
           const geocoded = await geocodeLocation(address.trim());
           if (geocoded) {
@@ -444,29 +456,85 @@ export default function EventPreviewModal({
           })()}
 
           {/* Location */}
-          {address && (
-            <View style={{
-              flexDirection: 'row',
-              alignItems: 'flex-start',
-              marginBottom: 16,
-              gap: 8,
-            }}>
-              <Ionicons name="location-outline" size={18} color="#FFFFFF" style={{ marginTop: 2 }} />
-              <TextInput
-                style={{
-                  color: '#FFFFFF',
-                  fontSize: 16,
-                  flex: 1,
-                }}
-                value={address}
-                onChangeText={setAddress}
-                placeholder="Location"
-                placeholderTextColor="rgba(255, 255, 255, 0.5)"
-                editable={!isSaving}
-                multiline
-              />
-            </View>
-          )}
+          <View style={{
+            marginBottom: 16,
+          }}>
+            <LocationAutocomplete
+              provider="openstreetmap"
+              placeholder="Search for a location..."
+              queryOptions={{
+                limit: 10,
+              }}
+              onLocationSelect={(location: LocationSuggestion) => {
+                const displayName = location.display_name || '';
+                setAddress(displayName);
+                // Extract coordinates if available (lat/lon may be strings, so parse them)
+                if (location.lat !== undefined && location.lon !== undefined) {
+                  const lat = typeof location.lat === 'string' ? parseFloat(location.lat) : location.lat;
+                  const lon = typeof location.lon === 'string' ? parseFloat(location.lon) : location.lon;
+                  if (!isNaN(lat) && !isNaN(lon)) {
+                    setSelectedLatitude(lat);
+                    setSelectedLongitude(lon);
+                  } else {
+                    setSelectedLatitude(undefined);
+                    setSelectedLongitude(undefined);
+                  }
+                } else {
+                  // Clear coordinates if not available
+                  setSelectedLatitude(undefined);
+                  setSelectedLongitude(undefined);
+                }
+              }}
+              onQueryChange={(query: string) => {
+                // Allow manual typing - clear coordinates when user types manually
+                if (query !== address) {
+                  setSelectedLatitude(undefined);
+                  setSelectedLongitude(undefined);
+                }
+                setAddress(query);
+              }}
+              debounceMs={300}
+              showRecentSearches={true}
+              containerStyle={{
+                backgroundColor: 'transparent',
+              }}
+              inputContainerStyle={{
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                borderWidth: 0,
+                borderRadius: 12,
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+              }}
+              inputStyle={{
+                fontSize: 16,
+                color: '#FFFFFF',
+              } as any}
+              suggestionStyle={{
+                backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                borderRadius: 12,
+                padding: 16,
+                marginVertical: 6,
+                borderWidth: 1,
+                borderColor: 'rgba(255, 255, 255, 0.1)',
+              }}
+              textStyle={{
+                color: '#FFFFFF',
+                fontSize: 16,
+                fontWeight: '500',
+              }}
+              theme={{
+                colors: {
+                  primary: '#3B82F6',
+                  onSurface: '#FFFFFF',
+                  onSurfaceVariant: 'rgba(255, 255, 255, 0.8)',
+                  surface: 'rgba(255, 255, 255, 0.05)',
+                  background: 'rgba(0, 0, 0, 0.4)',
+                  outline: 'rgba(255, 255, 255, 0.15)',
+                  shadow: 'rgba(0, 0, 0, 0.2)',
+                },
+              }}
+            />
+          </View>
 
           {/* Cost */}
           {cost && (
