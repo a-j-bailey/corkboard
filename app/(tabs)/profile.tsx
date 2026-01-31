@@ -1,5 +1,5 @@
 import { Button, Host, Menu } from '@expo/ui/swift-ui';
-import { labelStyle } from '@expo/ui/swift-ui/modifiers';
+import { controlSize, labelStyle, padding } from '@expo/ui/swift-ui/modifiers';
 import { Ionicons } from '@expo/vector-icons';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { GlassView } from 'expo-glass-effect';
@@ -112,8 +112,8 @@ export default function ProfileScreen() {
                 </ThemedText>
               </View>
 
-              {/* Menu */}
-              <Host style={{ width: 44, height: 44, borderRadius: 22, overflow: 'hidden' }}>
+              {/* Menu - larger touch target for easier selection */}
+              <Host style={{ width: 56, height: 56, borderRadius: 28, overflow: 'hidden' }}>
                 <Menu
                   systemImage="ellipsis"
                   modifiers={[labelStyle('iconOnly')]}
@@ -122,6 +122,7 @@ export default function ProfileScreen() {
                   <Button
                     label="Sign Out"
                     systemImage="rectangle.portrait.and.arrow.right"
+                    modifiers={[padding({ vertical: 14, horizontal: 20 }), controlSize('large')]}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                       signOut();

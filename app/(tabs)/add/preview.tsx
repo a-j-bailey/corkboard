@@ -1,5 +1,6 @@
 import { DatePicker, Host, TextField, Toggle } from '@expo/ui/swift-ui';
 import { Ionicons } from '@expo/vector-icons';
+import type { LocationSuggestion } from '@julekgwa/react-native-places-autocomplete';
 import { GlassView } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
@@ -18,14 +19,13 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LocationAutocomplete } from '@julekgwa/react-native-places-autocomplete';
-import type { LocationSuggestion } from '@julekgwa/react-native-places-autocomplete';
-import { XSymbol } from '../../../components/XSymbol';
+import { LocationSearchWithIcons } from '../../../components/LocationSearchWithIcons';
 import { Colors } from '../../../constants/theme';
 import { Event, EventDate, SocialMediaHandles, useEvents } from '../../../contexts/EventContext';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { parsePriceToNumber } from '../../../services/eventParser';
 import { geocodeLocation } from '../../../services/geocodingService';
+import { fetchLocationSuggestions } from '../../../services/locationSearchService';
 
 // Day settings interface
 interface DaySettings {
@@ -45,7 +45,6 @@ interface ValidationErrors {
   websiteUrl?: string;
   description?: string;
   organizationName?: string;
-  x?: string;
   instagram?: string;
   facebook?: string;
 }
@@ -160,7 +159,7 @@ const validateSocialHandle = (handle: string, platform: string): string | undefi
 export default function PreviewScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { addEvent } = useEvents();
+  const { addEvent, userLocation } = useEvents();
   const { colorScheme } = useTheme();
   const backgroundColor = Colors[colorScheme].background;
   const textColor = Colors[colorScheme].text;
@@ -274,7 +273,6 @@ export default function PreviewScreen() {
   const [websiteUrl, setWebsiteUrl] = useState(initialEventData.websiteUrl || '');
   const [description, setDescription] = useState(initialEventData.description || '');
   const [organizationName, setOrganizationName] = useState(initialEventData.organizationName || '');
-  const [x, setX] = useState(initialEventData.socialMediaHandles?.x || '');
   const [instagram, setInstagram] = useState(initialEventData.socialMediaHandles?.instagram || '');
   const [facebook, setFacebook] = useState(initialEventData.socialMediaHandles?.facebook || '');
 
@@ -295,7 +293,6 @@ export default function PreviewScreen() {
     setWebsiteUrl(initialEventData.websiteUrl || '');
     setDescription(initialEventData.description || '');
     setOrganizationName(initialEventData.organizationName || '');
-    setX(initialEventData.socialMediaHandles?.x || '');
     setInstagram(initialEventData.socialMediaHandles?.instagram || '');
     setFacebook(initialEventData.socialMediaHandles?.facebook || '');
     setErrors({}); // Clear errors when data changes
@@ -320,9 +317,6 @@ export default function PreviewScreen() {
 
     const orgError = validateOrganizationName(organizationName);
     if (orgError) return false;
-
-    const xError = validateSocialHandle(x, 'X');
-    if (xError) return false;
 
     const instagramError = validateSocialHandle(instagram, 'Instagram');
     if (instagramError) return false;
@@ -357,9 +351,6 @@ export default function PreviewScreen() {
 
     const orgError = validateOrganizationName(organizationName);
     if (orgError) newErrors.organizationName = orgError;
-
-    const xError = validateSocialHandle(x, 'X');
-    if (xError) newErrors.x = xError;
 
     const instagramError = validateSocialHandle(instagram, 'Instagram');
     if (instagramError) newErrors.instagram = instagramError;
@@ -467,7 +458,6 @@ export default function PreviewScreen() {
 
       // Construct social media handles object
       const socialMediaHandles: SocialMediaHandles = {};
-      if (x.trim()) socialMediaHandles.x = x.trim();
       if (instagram.trim()) socialMediaHandles.instagram = instagram.trim();
       if (facebook.trim()) socialMediaHandles.facebook = facebook.trim();
 
@@ -509,8 +499,9 @@ export default function PreviewScreen() {
     }
   };
 
-  const placeholderColor = colorScheme === 'dark' ? '#6B7280' : '#9CA3AF';
-  const errorColor = '#EF4444';
+  const iconColor = Colors[colorScheme].icon;
+  const placeholderColor = iconColor;
+  const errorColor = Colors[colorScheme].error;
 
   // Check if form is valid for submit button state
   // Use checkFormValid to ensure button state updates when errors are fixed
@@ -603,7 +594,7 @@ export default function PreviewScreen() {
                 aspectRatio: 2 / 3,
                 borderRadius: 16,
                 overflow: 'hidden',
-                backgroundColor: colorScheme === 'dark' ? '#1F1F1F' : '#E5E7EB',
+                backgroundColor: colorScheme === 'dark' ? Colors.dark.background : '#E5E7EB',
               }}>
                 <Image
                   source={{ uri: posterImageUri }}
@@ -698,7 +689,7 @@ export default function PreviewScreen() {
                     backgroundColor: tintColor,
                   }}
                 >
-                  <Ionicons name="add" size={16} color={Colors[colorScheme].text} />
+                  <Ionicons name="add" size={16} color={iconColor} />
                 </TouchableOpacity>
               </View>
 
@@ -735,7 +726,7 @@ export default function PreviewScreen() {
                             backgroundColor: colorScheme === 'dark' ? 'rgba(255, 0, 0, 0.2)' : 'rgba(255, 0, 0, 0.1)',
                           }}
                         >
-                          <Ionicons name="close" size={16} color="#EF4444" />
+                          <Ionicons name="close" size={16} color={errorColor} />
                         </TouchableOpacity>
                       )}
                     </View>
@@ -891,12 +882,9 @@ export default function PreviewScreen() {
               }}>
                 Location
               </Text>
-              <LocationAutocomplete
-                provider="openstreetmap"
+              <LocationSearchWithIcons
                 placeholder="Search for a location..."
-                queryOptions={{
-                  limit: 10,
-                }}
+                fetchSuggestions={(q) => fetchLocationSuggestions(q, userLocation ?? undefined, 10)}
                 onLocationSelect={(location: LocationSuggestion) => {
                 const displayName = location.display_name || '';
                 setAddress(displayName);
@@ -932,28 +920,21 @@ export default function PreviewScreen() {
                   }
                 }}
                 debounceMs={300}
-                showRecentSearches={true}
+                showRecentSearches
                 containerStyle={{
                   backgroundColor: 'transparent',
                 }}
                 inputContainerStyle={{
-                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                  borderWidth: 0,
-                  borderRadius: 12,
-                  paddingHorizontal: 12,
-                  paddingVertical: 8,
+                  marginBottom: 0,
                 }}
                 inputStyle={{
                   fontSize: 16,
                   color: textColor,
-                } as any}
+                  paddingHorizontal: 4,
+                }}
                 suggestionStyle={{
                   backgroundColor: 'rgba(255, 255, 255, 0.08)',
                   borderRadius: 12,
-                  padding: 16,
-                  marginVertical: 6,
-                  borderWidth: 1,
-                  borderColor: 'rgba(255, 255, 255, 0.1)',
                 }}
                 textStyle={{
                   color: textColor,
@@ -964,11 +945,13 @@ export default function PreviewScreen() {
                   colors: {
                     primary: tintColor,
                     onSurface: textColor,
-                    onSurfaceVariant: textColor + 'CC', // 80% opacity
-                    surface: 'rgba(255, 255, 255, 0.05)',
-                    background: 'rgba(0, 0, 0, 0.4)',
-                    outline: 'rgba(255, 255, 255, 0.15)',
-                    shadow: 'rgba(0, 0, 0, 0.2)',
+                    onSurfaceVariant: textColor + 'CC',
+                    surface: 'rgba(255, 255, 255, 0.12)',
+                    outline: 'rgba(255, 255, 255, 0.2)',
+                  },
+                  spacing: {
+                    iconMargin: 12,
+                    iconPadding: 8,
                   },
                 }}
               />
@@ -1243,56 +1226,12 @@ export default function PreviewScreen() {
                 Social Media
               </Text>
               <View style={{ gap: 16 }}>
-                {/* X/Twitter */}
-                <View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <XSymbol size={16} color={textColor} />
-                    <Text style={{
-                      color: textColor,
-                      fontSize: 12,
-                      opacity: 0.7,
-                    }}>
-                      X (Twitter)
-                    </Text>
-                  </View>
-                  <Host matchContents>
-                    <TextField
-                      defaultValue={x}
-                      onChangeText={(text) => {
-                        setX(text);
-                        if (errors.x) {
-                          setErrors(prev => ({ ...prev, x: undefined }));
-                        }
-                      }}
-                      placeholder="@username"
-                      autocorrection={false}
-                    />
-                  </Host>
-                  {errors.x && (
-                    <Text style={{
-                      color: errorColor,
-                      fontSize: 12,
-                      marginTop: 4,
-                    }}>
-                      {errors.x}
-                    </Text>
-                  )}
-                </View>
-
                 {/* Instagram */}
-                <View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <Ionicons name="logo-instagram" size={16} color="#E4405F" />
-                    <Text style={{
-                      color: textColor,
-                      fontSize: 12,
-                      opacity: 0.7,
-                    }}>
-                      Instagram
-                    </Text>
-                  </View>
-                  <Host matchContents>
-                    <TextField
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <Ionicons name="logo-instagram" size={22} color="#E4405F" />
+                  <View style={{ flex: 1 }}>
+                    <Host matchContents>
+                      <TextField
                       defaultValue={instagram}
                       onChangeText={(text) => {
                         setInstagram(text);
@@ -1303,32 +1242,25 @@ export default function PreviewScreen() {
                       placeholder="@username"
                       autocorrection={false}
                     />
-                  </Host>
-                  {errors.instagram && (
-                    <Text style={{
-                      color: errorColor,
-                      fontSize: 12,
-                      marginTop: 4,
-                    }}>
-                      {errors.instagram}
-                    </Text>
-                  )}
+                    </Host>
+                  </View>
                 </View>
+                {errors.instagram && (
+                  <Text style={{
+                    color: errorColor,
+                    fontSize: 12,
+                    marginTop: 4,
+                  }}>
+                    {errors.instagram}
+                  </Text>
+                )}
 
                 {/* Facebook */}
-                <View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <Ionicons name="logo-facebook" size={16} color="#1877F2" />
-                    <Text style={{
-                      color: textColor,
-                      fontSize: 12,
-                      opacity: 0.7,
-                    }}>
-                      Facebook
-                    </Text>
-                  </View>
-                  <Host matchContents>
-                    <TextField
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <Ionicons name="logo-facebook" size={22} color="#1877F2" />
+                  <View style={{ flex: 1 }}>
+                    <Host matchContents>
+                      <TextField
                       defaultValue={facebook}
                       onChangeText={(text) => {
                         setFacebook(text);
@@ -1339,17 +1271,18 @@ export default function PreviewScreen() {
                       placeholder="username"
                       autocorrection={false}
                     />
-                  </Host>
-                  {errors.facebook && (
-                    <Text style={{
-                      color: errorColor,
-                      fontSize: 12,
-                      marginTop: 4,
-                    }}>
-                      {errors.facebook}
-                    </Text>
-                  )}
+                    </Host>
+                  </View>
                 </View>
+                {errors.facebook && (
+                  <Text style={{
+                    color: errorColor,
+                    fontSize: 12,
+                    marginTop: 4,
+                  }}>
+                    {errors.facebook}
+                  </Text>
+                )}
               </View>
             </GlassView>
           </View>
@@ -1361,7 +1294,7 @@ export default function PreviewScreen() {
             paddingHorizontal: 20,
             paddingVertical: 12,
             borderTopWidth: 1,
-            borderTopColor: colorScheme === 'dark' ? '#1F2937' : '#E5E7EB',
+            borderTopColor: colorScheme === 'dark' ? Colors.dark.background : '#E5E7EB',
           }}>
             <TouchableOpacity
               onPress={() => {
@@ -1382,12 +1315,12 @@ export default function PreviewScreen() {
               }}
             >
               {isSaving ? (
-                <ActivityIndicator color={Colors[colorScheme].text} />
+                <ActivityIndicator color={textColor} />
               ) : (
-                <Ionicons name="save-outline" size={18} color={Colors[colorScheme].text} />
+                <Ionicons name="save-outline" size={18} color={textColor} />
               )}
               <Text style={{
-                color: Colors[colorScheme].text,
+                color: textColor,
                 fontSize: 16,
                 fontWeight: '700',
               }}>
