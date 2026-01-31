@@ -19,7 +19,7 @@ export default function TabsLayout() {
           <NativeTabs.Trigger.Icon sf="person.fill" />
           <NativeTabs.Trigger.Label>Profile</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="add" role="search" hidden={!user}>
+        <NativeTabs.Trigger name="add" hidden={!user}>
           <NativeTabs.Trigger.Icon sf="pin.fill" />
           <NativeTabs.Trigger.Label>Add</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>

@@ -1,15 +1,12 @@
-import { Button, Host, Menu } from '@expo/ui/swift-ui';
-import { labelStyle } from '@expo/ui/swift-ui/modifiers';
-import { GlassView } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Platform, RefreshControl, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors } from '../../constants/theme';
-import { DistanceFilter, Event, useEvents } from '../../contexts/EventContext';
-import { useTheme } from '../../contexts/ThemeContext';
+import { Colors } from '../../../constants/theme';
+import { DistanceFilter, Event, useEvents } from '../../../contexts/EventContext';
+import { useTheme } from '../../../contexts/ThemeContext';
 
 const DISTANCE_OPTIONS: { value: DistanceFilter; label: string }[] = [
   { value: 1, label: '1 mile' },
@@ -24,14 +21,14 @@ export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const { colorScheme } = useTheme();
   const insets = useSafeAreaInsets();
-  const { 
-    events, 
-    refreshEvents, 
-    loading, 
+  const {
+    events,
+    refreshEvents,
+    loading,
     error,
-    distanceFilter, 
-    setDistanceFilter, 
-    locationAvailable 
+    distanceFilter,
+    setDistanceFilter,
+    locationAvailable
   } = useEvents();
   const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
@@ -65,18 +62,16 @@ export default function HomeScreen() {
   };
 
   // Generate random rotation values synchronously when events change
-  // Use a seeded random function based on event ID to ensure consistent rotation per event
+  // Use a seeded random function based on event ID for consistent rotation per event
   const rotations = useMemo(() => {
     return events.map((event) => {
-      // Use event ID as seed for consistent rotation per event
       let hash = 0;
       for (let i = 0; i < event.id.length; i++) {
         hash = ((hash << 5) - hash) + event.id.charCodeAt(i);
-        hash = hash & hash; // Convert to 32-bit integer
+        hash = hash & hash;
       }
-      // Generate rotation between -5 and 5 degrees using seeded value
       const normalized = (Math.abs(hash) % 1000) / 1000;
-      return (normalized * 10 - 5); // Random value between -5 and 5
+      return (normalized * 10 - 5);
     });
   }, [events]);
 
@@ -172,8 +167,7 @@ export default function HomeScreen() {
 
   const renderHeader = () => {
     return (
-      <View style={{ paddingHorizontal: padding, paddingTop: padding + insets.top, paddingBottom: padding }}>
-        {/* Error banner when we have events but a refresh failed */}
+      <View style={{ paddingHorizontal: padding, paddingTop: padding, paddingBottom: padding }}>
         {error && events.length > 0 && (
           <TouchableOpacity
             onPress={onRefresh}
@@ -191,36 +185,6 @@ export default function HomeScreen() {
             </Text>
           </TouchableOpacity>
         )}
-        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' }}>
-          {/* Filter Menu */}
-          <GlassView
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 22,
-              overflow: 'hidden',
-            }}
-            glassEffectStyle="regular"
-          >
-            <Host style={{ width: 44, height: 44, borderRadius: 22, overflow: 'hidden' }}>
-              <Menu
-                systemImage="slider.horizontal.3"
-                modifiers={[labelStyle('iconOnly')]}
-                label={<Button systemImage="slider.horizontal.3" modifiers={[labelStyle('iconOnly')]} label="Filter by Distance" />}
-              >
-                {DISTANCE_OPTIONS.map((option) => (
-                  <Button
-                    key={option.value ?? 'all'}
-                    label={option.label}
-                    systemImage={distanceFilter === option.value ? 'checkmark' : undefined}
-                    onPress={() => handleDistanceSelect(option.value)}
-                  />
-                ))}
-              </Menu>
-            </Host>
-          </GlassView>
-        </View>
-        {/* Location Unavailable Message */}
         {!locationAvailable && (
           <View
             style={{
@@ -250,31 +214,48 @@ export default function HomeScreen() {
   };
 
   return (
-    <View className="flex-1" style={{ backgroundColor }}>
-      <FlatList
-        data={events}
-        renderItem={renderItem}
-        keyExtractor={(item) => item.id}
-        numColumns={numColumns}
-        style={{ backgroundColor }}
-        contentContainerStyle={{ 
-          padding, 
-          paddingBottom: padding + insets.bottom,
-          minHeight: '100%',
-        }}
-        ListHeaderComponent={renderHeader}
-        ListEmptyComponent={renderEmptyComponent}
-        columnWrapperStyle={numColumns > 1 ? { justifyContent: 'flex-start' } : undefined}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={Colors[colorScheme].tint}
-            progressViewOffset={Platform.OS === 'ios' ? insets.top : 0}
-          />
-        }
-      />
-    </View>
+    <>
+      <Stack.Toolbar placement="right">
+        <Stack.Toolbar.Menu icon="slider.horizontal.3">
+          {DISTANCE_OPTIONS.map((option) => (
+            <Stack.Toolbar.MenuAction
+              key={option.value ?? 'all'}
+              isOn={distanceFilter === option.value}
+              onPress={() => handleDistanceSelect(option.value)}
+            >
+              {option.label}
+            </Stack.Toolbar.MenuAction>
+          ))}
+        </Stack.Toolbar.Menu>
+      </Stack.Toolbar>
+
+      <View className="flex-1" style={{ backgroundColor }}>
+        <FlatList
+          data={events}
+          renderItem={renderItem}
+          keyExtractor={(item) => item.id}
+          numColumns={numColumns}
+          style={{ backgroundColor }}
+          contentContainerStyle={{
+            padding,
+            paddingTop: insets.top, // clear transparent header (~44pt nav bar)
+            paddingBottom: padding + insets.bottom,
+            minHeight: '100%',
+          }}
+          ListHeaderComponent={renderHeader}
+          ListEmptyComponent={renderEmptyComponent}
+          columnWrapperStyle={numColumns > 1 ? { justifyContent: 'flex-start' } : undefined}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={Colors[colorScheme].tint}
+              progressViewOffset={Platform.OS === 'ios' ? insets.top : 0}
+            />
+          }
+        />
+      </View>
+    </>
   );
 }

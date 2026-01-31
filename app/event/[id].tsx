@@ -1,10 +1,9 @@
-import { Button, Host, Menu } from '@expo/ui/swift-ui';
 import { Ionicons } from '@expo/vector-icons';
 import { GlassView } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useMemo } from 'react';
 import {
@@ -22,7 +21,6 @@ import { useEvents } from '../../contexts/EventContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useUser } from '../../contexts/UserContext';
 import { formatDateOnly, formatEventDates, formatTime } from '../../utils/dateFormatter';
-import { labelStyle } from '@expo/ui/swift-ui/modifiers';
 
 export default function EventDetailRoute() {
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -199,89 +197,33 @@ export default function EventDetailRoute() {
   }
 
   return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: Colors[colorScheme].background,
-      }}
-    >
-      {/* Custom Header with Round Buttons */}
+    <>
+      <Stack.Toolbar placement="right">
+        {user && (
+          <Stack.Toolbar.Button
+            icon={event?.isBookmarked ? 'bookmark.fill' : 'bookmark'}
+            tintColor={event?.isBookmarked ? bookmarkGoldColor : undefined}
+            onPress={handleBookmark}
+          />
+        )}
+        <Stack.Toolbar.Menu icon="ellipsis.circle">
+          <Stack.Toolbar.MenuAction
+            icon="exclamationmark.triangle"
+            destructive
+            onPress={handleReport}
+          >
+            Report
+          </Stack.Toolbar.MenuAction>
+        </Stack.Toolbar.Menu>
+      </Stack.Toolbar>
+
       <View
         style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: 1000,
-          paddingTop: 16,
-          paddingHorizontal: 16,
-          paddingBottom: 12,
-          flexDirection: 'row',
-          justifyContent: 'flex-end',
-          alignItems: 'center',
-          gap: 12,
+          flex: 1,
+          backgroundColor: Colors[colorScheme].background,
         }}
       >
-        {/* Bookmark Button - Only show if user is signed in */}
-        {user && (
-          <TouchableOpacity
-            onPress={handleBookmark}
-            activeOpacity={0.7}
-          >
-            <GlassView
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 22,
-                justifyContent: 'center',
-                alignItems: 'center',
-                overflow: 'hidden',
-              }}
-              glassEffectStyle="regular"
-            >
-              <Ionicons
-                name={event?.isBookmarked ? "bookmark" : "bookmark-outline"}
-                size={24}
-                color={event?.isBookmarked ? bookmarkGoldColor : textColor}
-              />
-            </GlassView>
-          </TouchableOpacity>
-        )}
-
-        {/* More Button with Dropdown */}
-        <Host style={{ width: 44, height: 44, borderRadius: 22, overflow: 'hidden' }}>
-          <Menu
-            label={
-              <GlassView
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 22,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  overflow: 'hidden',
-                }}
-                glassEffectStyle="regular"
-              >
-                <Ionicons
-                  name="ellipsis-horizontal"
-                  size={24}
-                  color={textColor}
-                />
-              </GlassView>
-            }
-          >
-            <Button
-              label="Report"
-              systemImage="exclamationmark.triangle"
-              onPress={handleReport}
-              role="destructive"
-            />
-          </Menu>
-        </Host>
-      </View>
-
-      <ScrollView
+        <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: insets.bottom, paddingTop: insets.top }}
         showsVerticalScrollIndicator={false}
@@ -612,6 +554,7 @@ export default function EventDetailRoute() {
           )}
         </View>
       </ScrollView>
-    </View>
+      </View>
+    </>
   );
 }

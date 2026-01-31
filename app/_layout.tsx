@@ -24,7 +24,10 @@ function RootStack() {
           name="event/[id]"
           options={{
             presentation: 'modal',
-            headerShown: false,
+            headerShown: true,
+            headerTransparent: true,
+            headerStyle: { backgroundColor: 'transparent' },
+            title: '',
           }}
         />
         <Stack.Screen
