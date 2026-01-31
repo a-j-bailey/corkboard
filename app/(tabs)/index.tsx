@@ -28,6 +28,7 @@ export default function HomeScreen() {
     events, 
     refreshEvents, 
     loading, 
+    error,
     distanceFilter, 
     setDistanceFilter, 
     locationAvailable 
@@ -126,9 +127,70 @@ export default function HomeScreen() {
     );
   };
 
+  const renderEmptyComponent = () => {
+    if (loading && events.length === 0) {
+      return (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 64 }}>
+          <Text style={{ color: textColor, fontSize: 16, opacity: 0.7 }}>Loading events…</Text>
+        </View>
+      );
+    }
+    if (error) {
+      return (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 64, paddingHorizontal: 32 }}>
+          <Text style={{ color: textColor, fontSize: 20, fontWeight: '600', textAlign: 'center', marginBottom: 8 }}>
+            Something went wrong
+          </Text>
+          <Text style={{ color: textColor, fontSize: 15, opacity: 0.8, textAlign: 'center', marginBottom: 24 }}>
+            {error}
+          </Text>
+          <TouchableOpacity
+            onPress={onRefresh}
+            style={{
+              backgroundColor: tintColor,
+              paddingHorizontal: 24,
+              paddingVertical: 12,
+              borderRadius: 12,
+            }}
+          >
+            <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>Try again</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 64, paddingHorizontal: 32 }}>
+        <Text style={{ color: textColor, fontSize: 20, fontWeight: '600', textAlign: 'center', marginBottom: 8 }}>
+          No events yet
+        </Text>
+        <Text style={{ color: textColor, fontSize: 15, opacity: 0.8, textAlign: 'center' }}>
+          Events near you will show up here. Pull down to refresh or add your own from the Add tab.
+        </Text>
+      </View>
+    );
+  };
+
   const renderHeader = () => {
     return (
       <View style={{ paddingHorizontal: padding, paddingTop: padding + insets.top, paddingBottom: padding }}>
+        {/* Error banner when we have events but a refresh failed */}
+        {error && events.length > 0 && (
+          <TouchableOpacity
+            onPress={onRefresh}
+            style={{
+              marginBottom: 12,
+              backgroundColor: Colors[colorScheme].yellow + '20',
+              padding: 12,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: Colors[colorScheme].yellow + '40',
+            }}
+          >
+            <Text style={{ color: textColor, fontSize: 14, textAlign: 'center' }}>
+              Couldn't load latest. Tap to retry.
+            </Text>
+          </TouchableOpacity>
+        )}
         <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' }}>
           {/* Filter Menu */}
           <GlassView
@@ -201,6 +263,7 @@ export default function HomeScreen() {
           minHeight: '100%',
         }}
         ListHeaderComponent={renderHeader}
+        ListEmptyComponent={renderEmptyComponent}
         columnWrapperStyle={numColumns > 1 ? { justifyContent: 'flex-start' } : undefined}
         showsVerticalScrollIndicator={false}
         refreshControl={
