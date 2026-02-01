@@ -101,7 +101,7 @@ export async function extractEventFromImage(
                 type: 'text',
                 text: `Extract all event information from this poster/flyer image. Look for:
 - Event title (usually the largest/most prominent text)
-- Date and time
+- Date and time (if multiple, return an array of date/times)
 - Location/address
 - Price/cost
 - Website URL
@@ -159,6 +159,7 @@ If there are multiple events on the poster, extract all of them. Return the info
     }
 
     const extractedData = result.object as unknown as ExtractedEvents;
+    console.log('[VisionExtraction] Extracted data:', extractedData);
     console.log('[VisionExtraction] Processing response, events found:', extractedData.events?.length || 0);
 
     if (extractedData.events && extractedData.events.length > 0) {
@@ -190,10 +191,11 @@ If there are multiple events on the poster, extract all of them. Return the info
         // If parsing failed and we got an empty array, try fallback parsing
         if (dates.length === 0) {
           console.log('[VisionExtraction] Date parsing failed, using fallback for:', firstEvent.date);
-          // Try to extract just the start date if it's a range
+          // Try to extract just the start date if it's a range (local midnight, then store as UTC)
           const isoDateMatch = firstEvent.date.match(/(\d{4}-\d{2}-\d{2})/);
           if (isoDateMatch) {
-            const fallbackDate = new Date(isoDateMatch[1] + 'T00:00:00');
+            const [y, m, d] = isoDateMatch[1].split('-').map(Number);
+            const fallbackDate = new Date(y, m - 1, d, 0, 0, 0);
             if (!isNaN(fallbackDate.getTime())) {
               dates = [{ start: fallbackDate.toISOString() }];
             }

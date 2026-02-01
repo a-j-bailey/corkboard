@@ -123,11 +123,10 @@ export function formatEventDates(dates: EventDate[]): string {
 function formatSingleDate(date: EventDate): string {
   const startDate = new Date(date.start);
   
-  // Check if this is a date-only event (time is midnight or close to it in UTC)
-  // When dates are stored as "2025-09-11T00:00:00.000Z", they represent date-only events
+  // Check if this is a date-only event: no end time and start is midnight UTC (legacy) or midnight local (new)
   const utcHours = startDate.getUTCHours();
   const utcMinutes = startDate.getUTCMinutes();
-  const isDateOnly = utcHours === 0 && utcMinutes === 0;
+  const isDateOnly = !date.end && ((utcHours === 0 && utcMinutes === 0) || (startDate.getHours() === 0 && startDate.getMinutes() === 0));
   
   let formatted = formatDateOnly(startDate);
   

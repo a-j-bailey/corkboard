@@ -200,10 +200,10 @@ export default function PreviewScreen() {
           };
         }
 
-        // Check if this is an all-day event (midnight UTC)
+        // Check if this is an all-day event (midnight UTC for legacy, or midnight local for new)
         const utcHours = startDate.getUTCHours();
         const utcMinutes = startDate.getUTCMinutes();
-        const isAllDay = utcHours === 0 && utcMinutes === 0;
+        const isAllDay = !dateItem.end && ((utcHours === 0 && utcMinutes === 0) || (startDate.getHours() === 0 && startDate.getMinutes() === 0));
 
         // Extract date (without time) - use local date components
         const date = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
@@ -380,14 +380,13 @@ export default function PreviewScreen() {
       // Convert day settings to EventDate format
       const dates: EventDate[] = daySettings.map(day => {
         if (day.isAllDay) {
-          // All-day event: use UTC midnight for the date
-          // Use UTC date components to avoid timezone issues
-          const dateOnly = new Date(Date.UTC(
+          // All-day event: local midnight for that date, then store as UTC
+          const dateOnly = new Date(
             day.date.getFullYear(),
             day.date.getMonth(),
             day.date.getDate(),
             0, 0, 0, 0
-          ));
+          );
           return {
             start: dateOnly.toISOString(),
           };
@@ -490,7 +489,10 @@ export default function PreviewScreen() {
       console.log('[PreviewScreen] Saving event:', JSON.stringify(eventData, null, 2));
       const newEvent = await addEvent(eventData, posterImageUri);
 
-      router.replace(`/event/${newEvent.id}`);
+      // Switch to home tab so the event modal has the board as background, then push event as modal
+      // Expo Router: (tabs)/index matches "/". Generated Href omits "/" so we assert.
+      router.replace(('/' as unknown) as import('expo-router').Href);
+      router.push(`/event/${newEvent.id}`);
     } catch (error) {
       console.error('[PreviewScreen] Error saving event:', error);
       Alert.alert('Error', 'Failed to save event. Please try again.');

@@ -529,12 +529,11 @@ export function parseDates(dateStr?: string, timeStr?: string): EventDate[] {
         endDay = parseInt(endPart);
       }
       
-      // Generate dates for each day in range
-      // Use UTC to avoid timezone issues for date-only events
-      const startDate = new Date(Date.UTC(year, startMonth - 1, startDay, 0, 0, 0));
-      const endDate = new Date(Date.UTC(year, endMonth - 1, endDay, 0, 0, 0));
+      // Generate dates for each day in range (local midnight, then store as UTC)
+      const startDate = new Date(year, startMonth - 1, startDay, 0, 0, 0);
+      const endDate = new Date(year, endMonth - 1, endDay, 0, 0, 0);
       
-      for (let d = new Date(startDate); d <= endDate; d.setUTCDate(d.getUTCDate() + 1)) {
+      for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
         dates.push({ start: d.toISOString() });
       }
       
@@ -544,25 +543,25 @@ export function parseDates(dateStr?: string, timeStr?: string): EventDate[] {
     // Parse single date
     let baseDate: Date;
     if (/^\d{4}-\d{2}-\d{2}$/.test(trimmedDateStr)) {
-      // ISO format (YYYY-MM-DD) - use UTC midnight for date-only events
+      // ISO format (YYYY-MM-DD) - local midnight for that date, then store as UTC
       console.log('[EventParser] Parsing ISO format date');
       const [year, month, day] = trimmedDateStr.split('-').map(Number);
-      baseDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+      baseDate = new Date(year, month - 1, day, 0, 0, 0);
     } else {
       // Try parsing as-is - if it's a date string without time, parse components
       console.log('[EventParser] Attempting to parse date string as-is');
       const parsed = new Date(trimmedDateStr);
       if (!isNaN(parsed.getTime())) {
-        // If the parsed date has no time component (or is at midnight), use UTC
+        // If the parsed date has no time component (or is at midnight), use local midnight then UTC
         // Otherwise preserve the time
         if (parsed.getHours() === 0 && parsed.getMinutes() === 0 && parsed.getSeconds() === 0) {
-          // Date-only, use UTC
-          baseDate = new Date(Date.UTC(
+          // Date-only: local midnight for that calendar date, then store as UTC
+          baseDate = new Date(
             parsed.getFullYear(),
             parsed.getMonth(),
             parsed.getDate(),
             0, 0, 0
-          ));
+          );
         } else {
           baseDate = parsed;
         }
