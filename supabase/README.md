@@ -79,6 +79,28 @@ Or set environment variables:
 - `EXPO_PUBLIC_SUPABASE_URL`
 - `EXPO_PUBLIC_SUPABASE_ANON_KEY`
 
+## Duplicate event detection (cron)
+
+The Edge Function `detect-duplicate-events` finds events that match on date/time and location, picks a canonical event per cluster, merges data into it, redirects bookmarks and reports to the canonical event, and marks duplicates with `duplicate_of_event_id`.
+
+**Deploy the function:**
+```bash
+supabase functions deploy detect-duplicate-events
+```
+
+**Run manually (dry run):**
+```bash
+curl -X POST "https://YOUR_PROJECT_REF.supabase.co/functions/v1/detect-duplicate-events?dry_run=true" \
+  -H "Authorization: Bearer YOUR_SERVICE_ROLE_KEY"
+```
+
+**Schedule with cron:** Use the Supabase Dashboard → **Integrations → Cron** (or **Database → Extensions** to enable `pg_cron` and `pg_net`). Create a job that runs daily (e.g. `0 3 * * *` at 3:00 UTC) and invokes:
+- URL: `https://YOUR_PROJECT_REF.supabase.co/functions/v1/detect-duplicate-events`
+- Method: POST
+- Header: `Authorization: Bearer YOUR_SERVICE_ROLE_KEY`
+
+See `migrations/004_cron_invoke_detect_duplicates.sql` for an example pg_cron SQL snippet.
+
 ## Testing
 
 After setup, test the integration by:
