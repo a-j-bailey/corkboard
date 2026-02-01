@@ -94,6 +94,18 @@ curl -X POST "https://YOUR_PROJECT_REF.supabase.co/functions/v1/detect-duplicate
   -H "Authorization: Bearer YOUR_SERVICE_ROLE_KEY"
 ```
 
+**Run locally (debug 500s):** From the project root, set env and serve the function so you see the real error and stack trace in the terminal:
+```bash
+cd supabase
+export SUPABASE_URL="https://YOUR_PROJECT_REF.supabase.co"
+export SUPABASE_SERVICE_ROLE_KEY="YOUR_SERVICE_ROLE_KEY"
+export DETECT_DUPLICATES_DEBUG=1   # optional: verbose console logs
+npx supabase functions serve detect-duplicate-events
+```
+Then in another terminal: `curl -X POST "http://127.0.0.1:54321/functions/v1/detect-duplicate-events" -H "Authorization: Bearer YOUR_SERVICE_ROLE_KEY"`. Any uncaught error will print in the serve terminal.
+
+**Debug logging:** Set `DETECT_DUPLICATES_DEBUG=1` or `DEBUG=1` in the function’s environment (Dashboard → Edge Functions → detect-duplicate-events → Settings, or when serving locally) to enable `[detect-duplicate-events]` console logs: request, dry_run, events_fetched, clusters_found, per-cluster canonical/duplicate ids, and summary. Logs appear in the Supabase Dashboard → Edge Functions → Logs, or in the terminal when running locally.
+
 **Schedule with cron:** Use the Supabase Dashboard → **Integrations → Cron** (or **Database → Extensions** to enable `pg_cron` and `pg_net`). Create a job that runs daily (e.g. `0 3 * * *` at 3:00 UTC) and invokes:
 - URL: `https://YOUR_PROJECT_REF.supabase.co/functions/v1/detect-duplicate-events`
 - Method: POST

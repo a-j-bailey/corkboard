@@ -22,6 +22,13 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+/** Enable verbose console logging. Set env DETECT_DUPLICATES_DEBUG=1 or DEBUG=1 when serving/invoking. */
+const DEBUG = Deno.env.get("DETECT_DUPLICATES_DEBUG") === "1" || Deno.env.get("DEBUG") === "1";
+
+function log(...args: unknown[]) {
+  if (DEBUG) console.log("[detect-duplicate-events]", ...args);
+}
+
 /** Max distance (miles) for two events to be considered same location when both have coordinates. */
 const LOCATION_THRESHOLD_MILES = 0.1;
 /** Earth radius in miles for Haversine distance. */
@@ -66,7 +73,9 @@ function parseDates(dates: EventDate[] | string): EventDate[] {
 
 /** Return ISO date parts (YYYY-MM-DD) of each event start for comparison. */
 function getStartDates(dates: EventDate[]): string[] {
-  return dates.map((d) => d.start.slice(0, 10));
+  return dates
+    .filter((d) => d && typeof d.start === "string" && d.start.length >= 10)
+    .map((d) => d.start!.slice(0, 10));
 }
 
 /**
@@ -156,11 +165,11 @@ function mergeIntoCanonical(canonical: DbEvent, duplicates: DbEvent[]): Partial<
     if (e.price != null && merged.price == null) merged.price = e.price;
     if (e.social_media && Object.keys(e.social_media).length && (!merged.social_media || !Object.keys(merged.social_media).length)) merged.social_media = e.social_media;
   }
-  const dates = parseDates(canonical.dates);
+  const dates = parseDates(canonical.dates).filter((d) => d && typeof d?.start === "string");
   const seen = new Set(dates.map((d) => d.start));
   for (const e of duplicates) {
     for (const d of parseDates(e.dates)) {
-      if (!seen.has(d.start)) {
+      if (d && typeof d.start === "string" && !seen.has(d.start)) {
         dates.push(d);
         seen.add(d.start);
       }
@@ -218,6 +227,8 @@ Deno.serve(async (req: Request) => {
     return new Response(null, { headers: corsHeaders() });
   }
 
+  log("request", req.method, req.url);
+
   // Parse dry_run from query string or JSON body (no DB writes when true).
   let dryRun = false;
   try {
@@ -227,13 +238,23 @@ Deno.serve(async (req: Request) => {
       const body = await req.json().catch(() => ({}));
       dryRun = body.dry_run === true;
     }
-  } catch {
-    // ignore
+  } catch (e) {
+    log("parse dry_run failed", e);
   }
+  log("dry_run", dryRun);
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceRoleKey) {
+    const msg = `Missing env: SUPABASE_URL=${!!supabaseUrl}, SUPABASE_SERVICE_ROLE_KEY=${!!serviceRoleKey}`;
+    log("env check failed", msg);
+    return new Response(
+      JSON.stringify({ error: msg, errors: [msg] }),
+      { status: 500, headers: { ...corsHeaders(), "Content-Type": "application/json" } }
+    );
+  }
   const supabase = createClient(supabaseUrl, serviceRoleKey);
+  log("supabase client created");
 
   const summary: {
     dry_run: boolean;
@@ -263,19 +284,24 @@ Deno.serve(async (req: Request) => {
       .is("duplicate_of_event_id", null);
 
     if (fetchError) {
-      summary.errors.push(fetchError.message);
-      return new Response(JSON.stringify(summary), {
-        status: 500,
-        headers: { ...corsHeaders(), "Content-Type": "application/json" },
-      });
+      summary.errors.push(`fetch events: ${fetchError.message}`);
+      log("fetch error", fetchError.code, fetchError.message, fetchError.details);
+      return new Response(
+        JSON.stringify({ ...summary, debug: { code: fetchError.code, details: fetchError.details } }),
+        { status: 500, headers: { ...corsHeaders(), "Content-Type": "application/json" } }
+      );
     }
 
     const list = (events ?? []) as DbEvent[];
     summary.events_fetched = list.length;
+    log("events_fetched", list.length);
+
     const clusters = findClusters(list);
     summary.clusters_found = clusters.length;
+    log("clusters_found", clusters.length, clusters.map((c) => c.length));
 
-    for (const cluster of clusters) {
+    for (let i = 0; i < clusters.length; i++) {
+      const cluster = clusters[i];
       // Pick canonical: highest score, then oldest created_at.
       const scored = cluster.map((e) => ({ e, score: scoreEvent(e) }));
       scored.sort((a, b) => {
@@ -285,6 +311,7 @@ Deno.serve(async (req: Request) => {
       const canonical = scored[0].e;
       const duplicates = scored.slice(1).map((x) => x.e);
       const duplicateIds = duplicates.map((e) => e.id);
+      log(`cluster ${i + 1}/${clusters.length} canonical=${canonical.id} duplicates=${duplicateIds.length} ids=[${canonical.id},${duplicateIds.join(",")}]`);
 
       if (dryRun) {
         summary.clusters_processed += 1;
@@ -293,6 +320,7 @@ Deno.serve(async (req: Request) => {
       }
 
       const merged = mergeIntoCanonical(canonical, duplicates);
+      log(`cluster ${i + 1} merge done, updating canonical ${canonical.id}`);
       // Update canonical event with merged fields (fill gaps from duplicates).
       const updatePayload: Record<string, unknown> = {
         title: merged.title ?? canonical.title,
@@ -315,6 +343,7 @@ Deno.serve(async (req: Request) => {
         .eq("id", canonical.id);
       if (updateCanonicalError) {
         summary.errors.push(`update canonical ${canonical.id}: ${updateCanonicalError.message}`);
+        log("update canonical error", canonical.id, updateCanonicalError.message);
         continue;
       }
 
@@ -325,6 +354,7 @@ Deno.serve(async (req: Request) => {
         .in("event_id", duplicateIds)
         .select("id");
       summary.bookmarks_redirected += bookmarksUpdated?.length ?? 0;
+      log(`cluster ${i + 1} bookmarks_redirected`, bookmarksUpdated?.length ?? 0);
 
       // Dedupe: keep one bookmark per (user_id, event_id), oldest by created_at.
       const { data: bookmarksForCanonical } = await supabase
@@ -353,6 +383,7 @@ Deno.serve(async (req: Request) => {
         .in("reported_event_id", duplicateIds)
         .select("id");
       summary.reports_redirected += reportsUpdated?.length ?? 0;
+      log(`cluster ${i + 1} reports_redirected`, reportsUpdated?.length ?? 0);
 
       // Dedupe: keep one report per reporting user (or per anon id), oldest by created_at.
       const { data: reportsForCanonical } = await supabase
@@ -382,20 +413,28 @@ Deno.serve(async (req: Request) => {
         .in("id", duplicateIds);
       if (markError) {
         summary.errors.push(`mark duplicates: ${markError.message}`);
+        log("mark duplicates error", markError.message);
         continue;
       }
 
       summary.clusters_processed += 1;
       summary.events_merged_into_canonical += duplicates.length;
+      log(`cluster ${i + 1} done`);
     }
 
+    log("summary", summary);
     return new Response(JSON.stringify(summary), {
       status: 200,
       headers: { ...corsHeaders(), "Content-Type": "application/json" },
     });
   } catch (err) {
-    summary.errors.push(err instanceof Error ? err.message : String(err));
-    return new Response(JSON.stringify(summary), {
+    const message = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : undefined;
+    summary.errors.push(message);
+    console.error("[detect-duplicate-events] caught", message, stack);
+    // Include debug info in response for 500s
+    const body = { ...summary, debug: { message, stack: stack ?? null } };
+    return new Response(JSON.stringify(body), {
       status: 500,
       headers: { ...corsHeaders(), "Content-Type": "application/json" },
     });
