@@ -5,7 +5,7 @@ import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -20,6 +20,7 @@ import { Colors } from '../../constants/theme';
 import { useEvents } from '../../contexts/EventContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useUser } from '../../contexts/UserContext';
+import { getEventById } from '../../services/eventService';
 import { formatDateOnly, formatEventDates, formatTime } from '../../utils/dateFormatter';
 
 export default function EventDetailRoute() {
@@ -34,16 +35,39 @@ export default function EventDetailRoute() {
   const bookmarkGoldColor = Colors[colorScheme].yellow;
   const imageBgColor = colorScheme === 'dark' ? '#1F1F1F' : '#E5E7EB';
 
-  const event = useMemo(
-    () => events.find((e) => e.id === id),
+  const eventFromContext = useMemo(
+    () => (id ? events.find((e) => e.id === id) : undefined),
     [events, id]
   );
 
+  const [eventFromId, setEventFromId] = useState<Awaited<ReturnType<typeof getEventById>>>(null);
+  const [idLoadChecked, setIdLoadChecked] = useState(false);
+
+  const event = eventFromContext ?? eventFromId ?? null;
+
   useEffect(() => {
-    if (!event && id && !loading) {
+    if (!id || eventFromContext || loading) return;
+    let cancelled = false;
+    (async () => {
+      const byId = await getEventById(id);
+      if (cancelled) return;
+      setIdLoadChecked(true);
+      if (byId?.duplicateOfEventId) {
+        router.replace(`/event/${byId.duplicateOfEventId}`);
+        return;
+      }
+      setEventFromId(byId);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, eventFromContext, loading, router]);
+
+  useEffect(() => {
+    if (!event && id && !loading && !idLoadChecked) {
       refreshEvents();
     }
-  }, [event, id, loading, refreshEvents]);
+  }, [event, id, loading, idLoadChecked, refreshEvents]);
 
   const handleBookmark = async () => {
     if (!user || !event) return;
@@ -163,7 +187,8 @@ export default function EventDetailRoute() {
     );
   }
 
-  if (loading) {
+  const stillLoading = loading || (id && !event && !idLoadChecked);
+  if (stillLoading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color={textColor} />
@@ -173,27 +198,30 @@ export default function EventDetailRoute() {
   }
 
   if (!event) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
-        <Text style={{ color: textColor, fontSize: 16 }}>Event not found.</Text>
-        <TouchableOpacity
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.back();
-          }}
-          activeOpacity={0.7}
-          style={{
-            marginTop: 16,
-            backgroundColor: textColor,
-            paddingHorizontal: 12,
-            paddingVertical: 8,
-            borderRadius: 12,
-          }}
-        >
-          <Text style={{ color: Colors[colorScheme].background, fontWeight: '600' }}>Go Back</Text>
-        </TouchableOpacity>
-      </View>
-    );
+    if (idLoadChecked) {
+      return (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <Text style={{ color: textColor, fontSize: 16 }}>Event not found.</Text>
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.back();
+            }}
+            activeOpacity={0.7}
+            style={{
+              marginTop: 16,
+              backgroundColor: textColor,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              borderRadius: 12,
+            }}
+          >
+            <Text style={{ color: Colors[colorScheme].background, fontWeight: '600' }}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    return null;
   }
 
   return (

@@ -28,6 +28,7 @@ interface DatabaseEvent {
   poster_image_url: string | null;
   created_at: string;
   updated_at: string;
+  duplicate_of_event_id: string | null;
 }
 
 /**
@@ -64,6 +65,7 @@ export function dbEventToEvent(dbEvent: DatabaseEvent): Event {
     posterImage: dbEvent.poster_image_url || '',
     createdAt: new Date(dbEvent.created_at),
     updatedAt: dbEvent.updated_at ? new Date(dbEvent.updated_at) : undefined,
+    duplicateOfEventId: dbEvent.duplicate_of_event_id ?? undefined,
   };
 }
 
@@ -242,6 +244,7 @@ export async function getEvents(
     const { data, error } = await supabase
       .from('events')
       .select('*')
+      .is('duplicate_of_event_id', null)
       .order('created_at', { ascending: false });
 
     if (error) {

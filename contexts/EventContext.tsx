@@ -34,6 +34,7 @@ export interface Event {
   createdAt: Date;
   updatedAt?: Date;
   isBookmarked?: boolean; // Whether the current user has bookmarked this event
+  duplicateOfEventId?: string; // If set, this event was merged into the canonical event with this id
 }
 
 export type DistanceFilter = 1 | 2 | 5 | 10 | 25 | null; // Distance in miles, null means no filter
