@@ -3,7 +3,7 @@ import { GlassView } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import * as Linking from 'expo-linking';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -224,8 +224,17 @@ export default function EventDetailRoute() {
     return null;
   }
 
+  const handleClose = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // Expo Router: (tabs)/index is the default route and matches "/". Generated Href omits "/" so we assert.
+    router.replace(('/' as unknown) as Href);
+  };
+
   return (
     <>
+      <Stack.Toolbar placement="left">
+        <Stack.Toolbar.Button icon="xmark" onPress={handleClose} />
+      </Stack.Toolbar>
       <Stack.Toolbar placement="right">
         {user && (
           <Stack.Toolbar.Button
