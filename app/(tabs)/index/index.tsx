@@ -216,7 +216,7 @@ export default function HomeScreen() {
   return (
     <>
       <Stack.Toolbar placement="right">
-        <Stack.Toolbar.Menu icon="slider.horizontal.3">
+        <Stack.Toolbar.Menu icon="mappin.and.ellipse">
           {DISTANCE_OPTIONS.map((option) => (
             <Stack.Toolbar.MenuAction
               key={option.value ?? 'all'}

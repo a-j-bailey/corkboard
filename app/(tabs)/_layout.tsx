@@ -13,15 +13,15 @@ export default function TabsLayout() {
       <NativeTabs tintColor={Colors[colorScheme].tint}>
         <NativeTabs.Trigger name="index">
           <NativeTabs.Trigger.Icon sf="square.grid.2x2.fill" />
-          <NativeTabs.Trigger.Label>Board</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Label hidden>Board</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="profile">
           <NativeTabs.Trigger.Icon sf="person.fill" />
-          <NativeTabs.Trigger.Label>Profile</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Label hidden>Profile</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="add" hidden={!user}>
           <NativeTabs.Trigger.Icon sf="pin.fill" />
-          <NativeTabs.Trigger.Label>Add</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Label hidden>Add</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
       </NativeTabs>
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
