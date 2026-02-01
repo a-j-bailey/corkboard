@@ -2,7 +2,7 @@ import { Stack } from 'expo-router';
 import { Colors } from '../../../constants/theme';
 import { useTheme } from '../../../contexts/ThemeContext';
 
-export default function BoardTabLayout() {
+export default function IndexTabLayout() {
   const { colorScheme } = useTheme();
 
   return (
