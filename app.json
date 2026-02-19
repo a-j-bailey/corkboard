@@ -4,7 +4,7 @@
     "slug": "corkboard",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    // "icon": "./assets/images/icon.png",
     "scheme": "corkboard",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -20,9 +20,9 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+          "foregroundImage": "./assets/images/android-icon-foreground.png",
+          "backgroundImage": "./assets/images/android-icon-background.png",
+          "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
@@ -35,8 +35,8 @@
       "package": "com.magicmirrorcreative.corkboard"
     },
     "web": {
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "output": "static"
+      // "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
       "expo-dev-client",
