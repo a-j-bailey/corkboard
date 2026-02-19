@@ -2,7 +2,10 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import '../global.css';
 
+import Constants from 'expo-constants';
 import { Stack } from 'expo-router';
+import { vexo } from 'vexo-analytics';
+
 import { Colors } from '../constants/theme';
 import { EventProvider } from '../contexts/EventContext';
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
@@ -47,6 +50,15 @@ function RootStack() {
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
     </>
   );
+}
+
+// Initialize Vexo analytics (production only). Set EXPO_PUBLIC_VEXO_API_KEY or vexoApiKey in app.json extra.
+if (!__DEV__) {
+  const vexoApiKey =
+    Constants.expoConfig?.extra?.vexoApiKey ?? process.env.EXPO_PUBLIC_VEXO_API_KEY;
+  if (vexoApiKey) {
+    vexo(vexoApiKey);
+  }
 }
 
 export default function RootLayout() {

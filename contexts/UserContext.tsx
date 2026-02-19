@@ -3,6 +3,7 @@ import { Session, User } from '@supabase/supabase-js';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { Platform, Alert } from 'react-native';
 import Constants from 'expo-constants';
+import { identifyDevice } from 'vexo-analytics';
 import { supabase } from '../lib/supabase';
 
 interface UserContextType {
@@ -26,6 +27,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+      if (!__DEV__ && session?.user) {
+        const identifier = session.user.email ?? session.user.id;
+        identifyDevice(identifier);
+      }
     });
 
     // Listen for auth changes
@@ -35,6 +40,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+
+      // Identify user in Vexo analytics when signed in (production only)
+      if (!__DEV__ && session?.user) {
+        const identifier = session.user.email ?? session.user.id;
+        identifyDevice(identifier);
+      }
     });
 
     return () => subscription.unsubscribe();
