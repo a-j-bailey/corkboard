@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as ImageManipulator from 'expo-image-manipulator';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Dimensions,
   StyleSheet,
   TouchableOpacity,
   View,
@@ -22,11 +24,40 @@ import { processPosterImage } from './processPosterImage';
 
 const POSTER_ASPECT_RATIO = 2 / 3; // width / height
 
+/**
+ * Map overlay frame rect (layout points from measureInWindow) to snapshot image pixels.
+ * Snapshot is a screenshot of the preview, so we scale from window size to snapshot size.
+ */
+function frameRectToSnapshotCrop(
+  frameRect: { x: number; y: number; width: number; height: number },
+  snapshotWidth: number,
+  snapshotHeight: number
+): { originX: number; originY: number; width: number; height: number } {
+  const { width: windowW, height: windowH } = Dimensions.get('window');
+  const scaleX = snapshotWidth / windowW;
+  const scaleY = snapshotHeight / windowH;
+
+  let originX = Math.round(frameRect.x * scaleX);
+  let originY = Math.round(frameRect.y * scaleY);
+  let width = Math.round(frameRect.width * scaleX);
+  let height = Math.round(frameRect.height * scaleY);
+
+  originX = Math.max(0, originX);
+  originY = Math.max(0, originY);
+  width = Math.min(width, snapshotWidth - originX);
+  height = Math.min(height, snapshotHeight - originY);
+  width = Math.max(1, width);
+  height = Math.max(1, height);
+
+  return { originX, originY, width, height };
+}
+
 export default function CameraScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colorScheme } = useTheme();
   const cameraRef = useRef<Camera>(null);
+  const frameRef = useRef<View>(null);
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
 
@@ -40,14 +71,38 @@ export default function CameraScreen() {
     setIsCapturing(true);
 
     try {
-      const photo = await cameraRef.current.takePhoto({
-        enableShutterSound: true,
+      const frameRect = await new Promise<{
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      }>((resolve) => {
+        frameRef.current?.measureInWindow((x, y, width, height) => {
+          resolve({ x, y, width, height });
+        });
       });
-      const uri = photo.path.startsWith('file://') ? photo.path : `file://${photo.path}`;
+
+      const snapshot = await cameraRef.current.takeSnapshot({
+        quality: 90,
+      });
+      const rawUri = snapshot.path.startsWith('file://')
+        ? snapshot.path
+        : `file://${snapshot.path}`;
+
+      const crop = frameRectToSnapshotCrop(
+        frameRect,
+        snapshot.width,
+        snapshot.height
+      );
+      const { uri } = await ImageManipulator.manipulateAsync(
+        rawUri,
+        [{ crop }],
+        {}
+      );
+
       await processPosterImage(uri, router, {
         onComplete: () => setIsCapturing(false),
       });
-      // Navigate to preview happens inside processPosterImage; no need to go back to camera
     } catch (error) {
       console.error('[CameraScreen] Capture error:', error);
       setIsCapturing(false);
@@ -104,6 +159,7 @@ export default function CameraScreen() {
         device={device}
         isActive={true}
         photo={true}
+        video={true}
         onInitialized={() => setIsCameraReady(true)}
       />
 
@@ -116,9 +172,13 @@ export default function CameraScreen() {
         <Ionicons name="chevron-back" size={32} color="#fff" />
       </TouchableOpacity>
 
-      {/* 2:3 poster frame overlay */}
+      {/* 2:3 poster frame overlay (measured for crop) */}
       <View style={styles.overlayContainer} pointerEvents="none">
-        <View style={[styles.posterFrame, { aspectRatio: POSTER_ASPECT_RATIO }]} />
+        <View
+          ref={frameRef}
+          style={[styles.posterFrame, { aspectRatio: POSTER_ASPECT_RATIO }]}
+          collapsable={false}
+        />
       </View>
 
       {/* Bottom area: shutter button */}
