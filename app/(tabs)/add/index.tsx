@@ -216,24 +216,25 @@ export default function AddScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor }}>
-      {/* Temporary Testing Button */}
-      <TouchableOpacity
-        onPress={openPreviewForTesting}
-        style={{
-          position: 'absolute',
-          top: insets.top + 12,
-          right: 16,
-          width: 44,
-          height: 44,
-          borderRadius: 22,
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-        }}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="add" size={24} color={Colors[colorScheme].tint} />
-      </TouchableOpacity>
+      {__DEV__ && (
+        <TouchableOpacity
+          onPress={openPreviewForTesting}
+          style={{
+            position: 'absolute',
+            top: insets.top + 12,
+            right: 16,
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="add" size={24} color={Colors[colorScheme].tint} />
+        </TouchableOpacity>
+      )}
 
       {capturedImageUri ? (
         // Show captured/selected image
