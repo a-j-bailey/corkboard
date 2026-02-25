@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import Constants from 'expo-constants';
 import { GlassView } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
@@ -13,12 +12,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import DocumentScanner from 'react-native-document-scanner-plugin';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from '../../../components/themed-text';
 import { Colors } from '../../../constants/theme';
 import { useTheme } from '../../../contexts/ThemeContext';
-import { extractEventFromImage } from '../../../services/visionExtraction';
+import { processPosterImage } from './processPosterImage';
 
 export default function AddScreen() {
   const router = useRouter();
@@ -32,143 +30,14 @@ export default function AddScreen() {
 
   const processImage = async (imageUri: string) => {
     setIsProcessing(true);
-
-    let navigationCompleted = false;
-
-    try {
-      // Get OpenAI API key
-      const openaiApiKey = Constants.expoConfig?.extra?.openaiApiKey || process.env.EXPO_PUBLIC_OPENAI_API_KEY;
-
-      if (!openaiApiKey) {
-        console.error('[AddScreen] No OpenAI API key found');
-        Alert.alert(
-          'API Key Required',
-          'OpenAI API key is required. Please set EXPO_PUBLIC_OPENAI_API_KEY in your environment or add openaiApiKey to app.json extra config.'
-        );
-        setIsProcessing(false);
-        return;
-      }
-
-      const eventData = await extractEventFromImage(imageUri, openaiApiKey);
-
-      // Store image URI for navigation before clearing state
-      const imageUriForPreview = capturedImageUri || imageUri;
-
-      // Navigate immediately to preview screen (before any state changes)
-      router.push({
-        pathname: '/add/preview',
-        params: {
-          eventData: encodeURIComponent(JSON.stringify(eventData)),
-          posterImageUri: imageUriForPreview || '',
-        },
-      });
-
-      navigationCompleted = true;
-
-      // Reset processing state and clear captured image after navigation is initiated
-      // Use setTimeout to ensure navigation completes before state changes
-      setTimeout(() => {
-        setIsProcessing(false);
-        setCapturedImageUri(null);
-      }, 500);
-
-      return; // Exit early to prevent finally block from resetting state
-    } catch (error) {
-      console.error('[AddScreen] Error processing image:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-
-      // Provide more specific error messages based on error type
-      let userMessage = 'Failed to extract event information. ';
-      if (errorMessage.includes('No text detected') || errorMessage.includes('No text content')) {
-        userMessage = 'No text was detected in the image. Please ensure the image is clear and contains readable text. ';
-      } else if (errorMessage.includes('Text extraction failed')) {
-        userMessage = 'Text extraction failed. The image may be too blurry or low quality. ';
-      }
-      userMessage += 'You can still manually enter the details in the preview screen.';
-
-      Alert.alert('Processing Error', userMessage, [
-        {
-          text: 'Try Again',
-          onPress: () => {
-            setCapturedImageUri(null);
-            setIsProcessing(false);
-          },
-        },
-        {
-          text: 'Enter Manually',
-          onPress: () => {
-            // Navigate to preview screen with empty event data so user can enter manually
-            router.push({
-              pathname: '/add/preview',
-              params: {
-                eventData: encodeURIComponent(JSON.stringify({})),
-                posterImageUri: capturedImageUri || '',
-              },
-            });
-            setIsProcessing(false);
-          },
-        },
-      ]);
-    } finally {
-      // Only reset processing state if navigation didn't complete
-      // (navigation will handle state cleanup in success case)
-      if (!navigationCompleted) {
-        setIsProcessing(false);
-      }
-    }
-  };
-
-  const scanDocument = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    try {
-      setIsProcessing(true);
-      
-      // Launch document scanner - limit to single page
-      // Note: maxNumDocuments only works on Android. On iOS, users can scan multiple pages
-      // but we will only use the first one.
-      const response = await DocumentScanner.scanDocument({
-        maxNumDocuments: 1, // Android only: limits UI to one page (requires app rebuild)
-      });
-
-      // Check if user cancelled
-      if (response.status === 'cancel' || !response.scannedImages || response.scannedImages.length === 0) {
-        setIsProcessing(false);
-        return;
-      }
-
-      // Enforce single page: only use the first scanned image
-      // On Android, maxNumDocuments: 1 should prevent multiple scans in the UI
-      // On iOS, the scanner UI allows multiple scans, but we only use the first result
-      const scannedImageUri = response.scannedImages[0];
-      
-      // Warn user if they scanned multiple pages (iOS only, or if Android limit didn't work)
-      if (response.scannedImages.length > 1) {
-        Alert.alert(
-          'Multiple Pages Detected',
-          'Please scan only one page at a time. Using the first page only.',
-          [{ text: 'OK' }]
-        );
-      }
-      
-      if (scannedImageUri) {
-        setCapturedImageUri(scannedImageUri);
-        await processImage(scannedImageUri);
-      } else {
-        setIsProcessing(false);
-      }
-    } catch (error) {
-      console.error('[AddScreen] Error scanning document:', error);
-      setIsProcessing(false);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      
-      // Check if user cancelled
-      if (errorMessage.includes('cancel') || errorMessage.includes('Cancel') || errorMessage.includes('cancelled')) {
-        // User cancelled, don't show error
-        return;
-      }
-      
-      Alert.alert('Error', 'Failed to scan document. Please try again.');
-    }
+    await processPosterImage(imageUri, router, {
+      onComplete: () => {
+        setTimeout(() => {
+          setIsProcessing(false);
+          setCapturedImageUri(null);
+        }, 500);
+      },
+    });
   };
 
   const pickImage = async () => {
@@ -291,12 +160,15 @@ export default function AddScreen() {
                 Scan Event Poster
               </ThemedText>
               <ThemedText style={{ fontSize: 16, marginBottom: 48, textAlign: 'center' }}>
-                Position the poster within the frame and the document scanner will automatically crop it
+                Position the poster in the frame and tap the shutter to capture
               </ThemedText>
 
-              {/* Scan Document Button */}
+              {/* Scan Poster – opens camera screen */}
               <TouchableOpacity
-                onPress={scanDocument}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  router.push('/add/camera');
+                }}
                 disabled={isProcessing}
                 activeOpacity={0.7}
                 style={{ width: '100%', marginBottom: 16 }}

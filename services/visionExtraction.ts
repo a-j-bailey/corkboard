@@ -120,7 +120,7 @@ If there are multiple events on the poster, extract all of them. Return the info
       console.log('[VisionExtraction] API call completed');
     } catch (apiError) {
       const errorAny = apiError as any;
-      
+
       // Extract error details
       const statusCode = errorAny.statusCode || errorAny.status;
       let responseBodyError = null;

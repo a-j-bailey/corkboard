@@ -1,4 +1,5 @@
 import { Colors } from '@/constants/theme';
+import { useSegments } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { StatusBar } from 'expo-status-bar';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -7,10 +8,12 @@ import { useUser } from '../../contexts/UserContext';
 export default function TabsLayout() {
   const { colorScheme } = useTheme();
   const { user } = useUser();
+  const segments = useSegments();
+  const isCameraScreen = segments[segments.length - 1] === 'camera';
 
   return (
     <>
-      <NativeTabs tintColor={Colors[colorScheme].tint}>
+      <NativeTabs hidden={isCameraScreen} tintColor={Colors[colorScheme].tint}>
         <NativeTabs.Trigger name="index">
           <NativeTabs.Trigger.Icon sf="square.grid.2x2.fill" />
           <NativeTabs.Trigger.Label hidden>Board</NativeTabs.Trigger.Label>
