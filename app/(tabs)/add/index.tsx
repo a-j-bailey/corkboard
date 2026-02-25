@@ -36,20 +36,20 @@ export default function AddScreen() {
     let navigationCompleted = false;
 
     try {
-      // Get xAI API key
-      const xaiApiKey = Constants.expoConfig?.extra?.xaiApiKey || process.env.EXPO_PUBLIC_XAI_API_KEY;
+      // Get OpenAI API key
+      const openaiApiKey = Constants.expoConfig?.extra?.openaiApiKey || process.env.EXPO_PUBLIC_OPENAI_API_KEY;
 
-      if (!xaiApiKey) {
-        console.error('[AddScreen] No xAI API key found');
+      if (!openaiApiKey) {
+        console.error('[AddScreen] No OpenAI API key found');
         Alert.alert(
           'API Key Required',
-          'xAI API key is required. Please set EXPO_PUBLIC_XAI_API_KEY in your environment or add xaiApiKey to app.json extra config.'
+          'OpenAI API key is required. Please set EXPO_PUBLIC_OPENAI_API_KEY in your environment or add openaiApiKey to app.json extra config.'
         );
         setIsProcessing(false);
         return;
       }
 
-      const eventData = await extractEventFromImage(imageUri, xaiApiKey);
+      const eventData = await extractEventFromImage(imageUri, openaiApiKey);
 
       // Store image URI for navigation before clearing state
       const imageUriForPreview = capturedImageUri || imageUri;
