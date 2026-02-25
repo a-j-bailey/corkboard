@@ -306,6 +306,9 @@ export default function PreviewScreen() {
     const datesError = validateDaySettings(daySettings);
     if (datesError) return false;
 
+    // Location (lat/long) is required
+    if (selectedLatitude === undefined || selectedLongitude === undefined) return false;
+
     const costError = validatePrice(cost);
     if (costError) return false;
 
@@ -337,8 +340,10 @@ export default function PreviewScreen() {
     const datesError = validateDaySettings(daySettings);
     if (datesError) newErrors.date = datesError;
 
-    const addressError = address.trim() ? undefined : undefined; // Address is optional
-    // Could add address format validation here
+    // Location (lat/long) is required — user must select from search to set coordinates
+    if (selectedLatitude === undefined || selectedLongitude === undefined) {
+      newErrors.address = 'Please search and select a location (required).';
+    }
 
     const costError = validatePrice(cost);
     if (costError) newErrors.cost = costError;
