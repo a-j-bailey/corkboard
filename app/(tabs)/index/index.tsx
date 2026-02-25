@@ -14,7 +14,7 @@ const DISTANCE_OPTIONS: { value: DistanceFilter; label: string }[] = [
   { value: 5, label: '5 miles' },
   { value: 10, label: '10 miles' },
   { value: 25, label: '25 miles' },
-  { value: null, label: 'All' },
+  ...(__DEV__ ? [{ value: null, label: 'All' }] : []),
 ];
 
 export default function HomeScreen() {
