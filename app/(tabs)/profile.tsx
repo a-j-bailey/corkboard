@@ -4,7 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { GlassView } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from '../../components/themed-text';
@@ -22,21 +23,39 @@ export default function ProfileScreen() {
   const tintColor = Colors[colorScheme].tint;
   const yellowColor = Colors[colorScheme].yellow;
 
+  // Defer GlassView mount until tab is focused + one frame (fixes first-visit no-render with native tabs)
+  const [canShowGlass, setCanShowGlass] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      const id = requestAnimationFrame(() => setCanShowGlass(true));
+      return () => {
+        cancelAnimationFrame(id);
+        setCanShowGlass(false);
+      };
+    }, [])
+  );
+
   if (loading) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor, justifyContent: 'center', alignItems: 'center' }}>
-        <GlassView
-          style={{
-            width: 80,
-            height: 80,
-            borderRadius: 40,
-            justifyContent: 'center',
-            alignItems: 'center',
-          }}
-          glassEffectStyle="regular"
-        >
-          <ActivityIndicator size="large" color={textColor} />
-        </GlassView>
+        {canShowGlass ? (
+          <GlassView
+            style={{
+              width: 80,
+              height: 80,
+              borderRadius: 40,
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+            glassEffectStyle="regular"
+          >
+            <ActivityIndicator size="large" color={textColor} />
+          </GlassView>
+        ) : (
+          <View style={{ width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center', backgroundColor: backgroundColor + 'E6' }}>
+            <ActivityIndicator size="large" color={textColor} />
+          </View>
+        )}
       </SafeAreaView>
     );
   }
@@ -65,74 +84,99 @@ export default function ProfileScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Profile Header Card */}
-          <GlassView
-            style={{
-              borderRadius: 24,
-              padding: 24,
-              overflow: 'hidden',
-            }}
-            glassEffectStyle="regular"
-          >
-            <View style={{ flexDirection: 'row', gap: 16, alignItems: 'center' }}>
-              {/* Avatar */}
-              <GlassView
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 22,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  overflow: 'hidden',
-                }}
-                glassEffectStyle="regular"
-                tintColor={tintColor}
-              >
-                <Text
+          {canShowGlass ? (
+            <GlassView
+              style={{
+                borderRadius: 24,
+                padding: 24,
+                overflow: 'hidden',
+              }}
+              glassEffectStyle="regular"
+            >
+              <View style={{ flexDirection: 'row', gap: 16, alignItems: 'center' }}>
+                {/* Avatar */}
+                <GlassView
                   style={{
-                    fontSize: 16,
-                    fontWeight: '700',
-                    color: Colors[colorScheme].background,
+                    width: 44,
+                    height: 44,
+                    borderRadius: 22,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    overflow: 'hidden',
                   }}
+                  glassEffectStyle="regular"
+                  tintColor={tintColor}
                 >
-                  {initials}
-                </Text>
-              </GlassView>
-
-              {/* User Info */}
-              <View style={{ flex: 1, justifyContent: 'center' }}>
-                <ThemedText
-                  type="title"
-                  style={{
-                    fontSize: 22,
-                    fontWeight: '700',
-                    marginBottom: 0,
-                  }}
-                >
-                  {displayName}
-                </ThemedText>
-              </View>
-
-              {/* Menu - larger touch target for easier selection */}
-              <Host style={{ width: 56, height: 56, borderRadius: 28, overflow: 'hidden' }}>
-                <Menu
-                  systemImage="ellipsis"
-                  modifiers={[labelStyle('iconOnly')]}
-                  label={<Button systemImage="ellipsis" modifiers={[labelStyle('iconOnly')]} label="Menu Options" />}
-                >
-                  <Button
-                    label="Sign Out"
-                    systemImage="rectangle.portrait.and.arrow.right"
-                    modifiers={[padding({ vertical: 14, horizontal: 20 }), controlSize('large')]}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                      signOut();
+                  <Text
+                    style={{
+                      fontSize: 16,
+                      fontWeight: '700',
+                      color: Colors[colorScheme].background,
                     }}
-                    role="destructive"
-                  />
-                </Menu>
-              </Host>
+                  >
+                    {initials}
+                  </Text>
+                </GlassView>
+
+                {/* User Info */}
+                <View style={{ flex: 1, justifyContent: 'center' }}>
+                  <ThemedText
+                    type="title"
+                    style={{
+                      fontSize: 22,
+                      fontWeight: '700',
+                      marginBottom: 0,
+                    }}
+                  >
+                    {displayName}
+                  </ThemedText>
+                </View>
+
+                {/* Menu - larger touch target for easier selection */}
+                <Host style={{ width: 56, height: 56, borderRadius: 28, overflow: 'hidden' }}>
+                  <Menu
+                    systemImage="ellipsis"
+                    modifiers={[labelStyle('iconOnly')]}
+                    label={<Button systemImage="ellipsis" modifiers={[labelStyle('iconOnly')]} label="Menu Options" />}
+                  >
+                    <Button
+                      label="Sign Out"
+                      systemImage="rectangle.portrait.and.arrow.right"
+                      modifiers={[padding({ vertical: 14, horizontal: 20 }), controlSize('large')]}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                        signOut();
+                      }}
+                      role="destructive"
+                    />
+                  </Menu>
+                </Host>
+              </View>
+            </GlassView>
+          ) : (
+            <View style={{ borderRadius: 24, padding: 24, overflow: 'hidden', backgroundColor: backgroundColor + 'E6' }}>
+              <View style={{ flexDirection: 'row', gap: 16, alignItems: 'center' }}>
+                <View
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 22,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    backgroundColor: tintColor + '40',
+                  }}
+                >
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: Colors[colorScheme].background }}>{initials}</Text>
+                </View>
+                <View style={{ flex: 1, justifyContent: 'center' }}>
+                  <ThemedText type="title" style={{ fontSize: 22, fontWeight: '700', marginBottom: 0 }}>
+                    {displayName}
+                  </ThemedText>
+                </View>
+                <View style={{ width: 56, height: 56 }} />
+              </View>
             </View>
-          </GlassView>
+          )}
 
           {/* Actions Section */}
           <View style={{ gap: 16 }}>
@@ -144,16 +188,17 @@ export default function ProfileScreen() {
               }}
               activeOpacity={0.7}
             >
-              <GlassView
-                style={{
-                  borderRadius: 20,
-                  paddingVertical: 18,
-                  paddingHorizontal: 20,
-                  overflow: 'hidden',
-                }}
-                glassEffectStyle="regular"
-                isInteractive
-              >
+              {canShowGlass ? (
+                <GlassView
+                  style={{
+                    borderRadius: 20,
+                    paddingVertical: 18,
+                    paddingHorizontal: 20,
+                    overflow: 'hidden',
+                  }}
+                  glassEffectStyle="regular"
+                  isInteractive
+                >
                 <View
                   style={{
                     flexDirection: 'row',
@@ -204,6 +249,41 @@ export default function ProfileScreen() {
                   />
                 </View>
               </GlassView>
+              ) : (
+                <View
+                  style={{
+                    borderRadius: 20,
+                    paddingVertical: 18,
+                    paddingHorizontal: 20,
+                    overflow: 'hidden',
+                    backgroundColor: backgroundColor + 'E6',
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                      <View
+                        style={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: 22,
+                          backgroundColor: yellowColor + '20',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Ionicons name="bookmark-outline" size={22} color={yellowColor} />
+                      </View>
+                      <View>
+                        <Text style={{ color: textColor, fontWeight: '600', fontSize: 17 }}>Bookmarks</Text>
+                        <Text style={{ color: textColor, opacity: 0.6, fontSize: 14, marginTop: 2 }}>
+                          View your saved events
+                        </Text>
+                      </View>
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color={textColor} style={{ opacity: 0.4 }} />
+                  </View>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -233,56 +313,95 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Welcome Card */}
-        <GlassView
-          style={{
-            borderRadius: 32,
-            padding: 32,
-            alignItems: 'center',
-            overflow: 'hidden',
-            maxWidth: 400,
-          }}
-          glassEffectStyle="regular"
-        >
+        {canShowGlass ? (
+          <GlassView
+            style={{
+              borderRadius: 32,
+              padding: 32,
+              alignItems: 'center',
+              overflow: 'hidden',
+              maxWidth: 400,
+            }}
+            glassEffectStyle="regular"
+          >
+            <View
+              style={{
+                width: 100,
+                height: 100,
+                borderRadius: 50,
+                backgroundColor: tintColor + '20',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: 24,
+              }}
+            >
+              <Ionicons name="person-outline" size={48} color={tintColor} />
+            </View>
+
+            <ThemedText
+              type="title"
+              style={{
+                color: textColor,
+                fontSize: 32,
+                marginBottom: 12,
+                textAlign: 'center',
+              }}
+            >
+              Welcome
+            </ThemedText>
+
+            <ThemedText
+              type="default"
+              style={{
+                textAlign: 'center',
+                color: textColor,
+                opacity: 0.8,
+                fontSize: 16,
+                lineHeight: 24,
+                marginBottom: 8,
+              }}
+            >
+              Sign in to save and sync your corkboard across all your devices.
+            </ThemedText>
+          </GlassView>
+        ) : (
           <View
             style={{
-              width: 100,
-              height: 100,
-              borderRadius: 50,
-              backgroundColor: tintColor + '20',
-              justifyContent: 'center',
+              borderRadius: 32,
+              padding: 32,
               alignItems: 'center',
-              marginBottom: 24,
+              overflow: 'hidden',
+              maxWidth: 400,
+              backgroundColor: backgroundColor + 'E6',
             }}
           >
-            <Ionicons name="person-outline" size={48} color={tintColor} />
+            <View
+              style={{
+                width: 100,
+                height: 100,
+                borderRadius: 50,
+                backgroundColor: tintColor + '20',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: 24,
+              }}
+            >
+              <Ionicons name="person-outline" size={48} color={tintColor} />
+            </View>
+            <ThemedText
+              type="title"
+              style={{ color: textColor, fontSize: 32, marginBottom: 12, textAlign: 'center' }}
+            >
+              Welcome
+            </ThemedText>
+            <ThemedText
+              type="default"
+              style={{ textAlign: 'center', color: textColor, opacity: 0.8, fontSize: 16, lineHeight: 24, marginBottom: 8 }}
+            >
+              Sign in to save and sync your corkboard across all your devices.
+            </ThemedText>
           </View>
-
-          <ThemedText
-            type="title"
-            style={{
-              color: textColor,
-              fontSize: 32,
-              marginBottom: 12,
-              textAlign: 'center',
-            }}
-          >
-            Welcome
-          </ThemedText>
-
-          <ThemedText
-            type="default"
-            style={{
-              textAlign: 'center',
-              color: textColor,
-              opacity: 0.8,
-              fontSize: 16,
-              lineHeight: 24,
-              marginBottom: 8,
-            }}
-          >
-            Sign in to save and sync your corkboard across all your devices.
-          </ThemedText>
-        </GlassView>
+        )}
 
         {/* Sign In Button */}
         <View style={{ width: '100%', maxWidth: 400, gap: 16 }}>
@@ -303,7 +422,7 @@ export default function ProfileScreen() {
                 }}
               />
             </Host>
-          ) : (
+          ) : canShowGlass ? (
             <TouchableOpacity onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               signInWithApple();
@@ -340,6 +459,29 @@ export default function ProfileScreen() {
                   </Text>
                 </View>
               </GlassView>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              signInWithApple();
+            }} activeOpacity={0.7}>
+              <View
+                style={{
+                  borderRadius: 16,
+                  paddingVertical: 18,
+                  paddingHorizontal: 24,
+                  overflow: 'hidden',
+                  width: '100%',
+                  backgroundColor: tintColor + 'E6',
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+                  <Ionicons name="logo-apple" size={24} color={Colors[colorScheme].background} />
+                  <Text style={{ color: Colors[colorScheme].background, fontWeight: '700', fontSize: 17 }}>
+                    Sign in with Apple
+                  </Text>
+                </View>
+              </View>
             </TouchableOpacity>
           )}
         </View>
