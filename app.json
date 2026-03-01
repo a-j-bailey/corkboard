@@ -7,14 +7,15 @@
     "scheme": "corkboard",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "infoPlist": {
         "NSCameraUsageDescription": "This app needs access to your camera to take photos for your posts.",
         "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to select event poster images.",
         "NSLocationWhenInUseUsageDescription": "This app needs access to your location to geocode event addresses and find nearby locations.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs access to your location to geocode event addresses and find nearby locations."
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs access to your location to geocode event addresses and find nearby locations.",
+        "ITSAppUsesNonExemptEncryption": false
       },
-      "bundleIdentifier": "com.magicmirrorcreative.corkboard"
+      "bundleIdentifier": "com.justlaunch.corkboard"
     },
     "android": {
       "adaptiveIcon": {
@@ -26,9 +27,11 @@
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.READ_MEDIA_IMAGES",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ],
-      "package": "com.magicmirrorcreative.corkboard"
+      "package": "com.justlaunch.corkboard"
     },
     "web": {
       "output": "static"
@@ -51,13 +54,13 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to take photos for your posts."
+          "cameraPermission": "Allow corkboard to access your camera to take photos when adding events."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow $(PRODUCT_NAME) to access your photos to select event poster images."
+          "photosPermission": "Allow corkboard to access your photos to select images when adding events."
         }
       ],
       "expo-apple-authentication",
@@ -74,7 +77,7 @@
       [
         "react-native-vision-camera",
         {
-          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to scan event posters."
+          "cameraPermission": "Allow corkboard to access your camera to scan event posters when adding events."
         }
       ]
     ],
