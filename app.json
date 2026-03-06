@@ -3,6 +3,7 @@
     "name": "corkboard",
     "slug": "corkboard",
     "version": "0.1.0",
+    "icon": "./assets/images/icon.png",
     "orientation": "portrait",
     "scheme": "corkboard",
     "userInterfaceStyle": "automatic",
@@ -88,11 +89,11 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "cab5b354-1255-4e8b-a233-8bd16cc6eea6"
+        "projectId": "59af26c0-3939-4323-90c3-ac2ca72fb990"
       },
       "supabaseUrl": "https://bqsogesiidtmzdzwmlbl.supabase.co",
       "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxc29nZXNpaWR0bXpkendtbGJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYwMTc4ODksImV4cCI6MjA4MTU5Mzg4OX0.ErjFhaOKGSWFrKPV7nkOjJTdJwUbx-ZTaFzxXn7a9BE"
     },
-    "owner": "magicmirrorcreative"
+    "owner": "justlaunch-club"
   }
 }

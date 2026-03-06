@@ -19,9 +19,7 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "adam@magicmirrorcreative.com",
-        "appleTeamId": "RGUYMUR65K",
-        "ascAppId": "6759840829"
+        "appleId": "engineering@justlaunch.club"
       }
     }
   }
