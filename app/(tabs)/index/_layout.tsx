@@ -1,17 +1,19 @@
+import { isGlassEffectAPIAvailable } from 'expo-glass-effect';
 import { Stack } from 'expo-router';
 import { Colors } from '../../../constants/theme';
 import { useTheme } from '../../../contexts/ThemeContext';
 
 export default function IndexTabLayout() {
   const { colorScheme } = useTheme();
+  const useGlass = isGlassEffectAPIAvailable();
 
   return (
     <Stack
       screenOptions={{
         headerShown: true,
-        headerTransparent: true,
+        headerTransparent: useGlass,
         headerStyle: {
-          backgroundColor: 'transparent',
+          backgroundColor: useGlass ? 'transparent' : Colors[colorScheme].background,
         },
         headerTintColor: Colors[colorScheme].text,
         title: '',

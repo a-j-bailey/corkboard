@@ -1,4 +1,5 @@
 import { Colors } from '@/constants/theme';
+import { isGlassEffectAPIAvailable } from 'expo-glass-effect';
 import { useSegments } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { StatusBar } from 'expo-status-bar';
@@ -13,7 +14,13 @@ export default function TabsLayout() {
 
   return (
     <>
-      <NativeTabs hidden={isCameraScreen} tintColor={Colors[colorScheme].tint}>
+      <NativeTabs
+        hidden={isCameraScreen}
+        tintColor={Colors[colorScheme].tint}
+        backgroundColor={
+          !isGlassEffectAPIAvailable() ? Colors[colorScheme].background : undefined
+        }
+      >
         <NativeTabs.Trigger name="index">
           <NativeTabs.Trigger.Icon sf="square.grid.2x2.fill" />
           <NativeTabs.Trigger.Label hidden>Board</NativeTabs.Trigger.Label>
