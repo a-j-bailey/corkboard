@@ -5,12 +5,7 @@ export default function AddLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="camera" />
-      <Stack.Screen 
-        name="preview" 
-        options={{
-          presentation: 'modal',
-        }}
-      />
+      <Stack.Screen name="preview" />
     </Stack>
   );
 }

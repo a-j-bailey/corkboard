@@ -494,10 +494,9 @@ export default function PreviewScreen() {
       console.log('[PreviewScreen] Saving event:', JSON.stringify(eventData, null, 2));
       const newEvent = await addEvent(eventData, posterImageUri);
 
-      // Switch to home tab so the event modal has the board as background, then push event as modal
+      // Clear stack and navigate to home events page
       // Expo Router: (tabs)/index matches "/". Generated Href omits "/" so we assert.
       router.replace(('/' as unknown) as import('expo-router').Href);
-      router.push(`/event/${newEvent.id}`);
     } catch (error) {
       console.error('[PreviewScreen] Error saving event:', error);
       Alert.alert('Error', 'Failed to save event. Please try again.');
