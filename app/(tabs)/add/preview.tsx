@@ -720,7 +720,7 @@ export default function PreviewScreen() {
                     backgroundColor: tintColor,
                   }}
                 >
-                  <Ionicons name="add" size={16} color={iconColor} />
+                  <Ionicons name="add" size={16} color="#fff" />
                 </TouchableOpacity>
               </View>
 

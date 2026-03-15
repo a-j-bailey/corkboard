@@ -1,5 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
+import { isGlassEffectAPIAvailable } from 'expo-glass-effect';
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { FlatList, Platform, RefreshControl, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
@@ -238,7 +239,7 @@ export default function HomeScreen() {
           style={{ backgroundColor }}
           contentContainerStyle={{
             padding,
-            paddingTop: insets.top, // clear transparent header (~44pt nav bar)
+            paddingTop: isGlassEffectAPIAvailable() ? insets.top : padding,
             paddingBottom: padding + insets.bottom,
             minHeight: '100%',
           }}
