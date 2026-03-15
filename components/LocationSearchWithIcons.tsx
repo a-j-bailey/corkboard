@@ -36,7 +36,7 @@ const DEFAULT_THEME = {
   },
 };
 
-function getIconForSuggestion(
+export function getIconForSuggestion(
   suggestion: LocationSuggestion<OpenStreetMapResult>,
   color: string,
   size: number
@@ -302,7 +302,7 @@ export function LocationSearchWithIcons({
         >
           {showRecent ? (
             <ScrollView
-              keyboardShouldPersistTaps="handled"
+              keyboardShouldPersistTaps="always"
               nestedScrollEnabled
               showsVerticalScrollIndicator={false}
               style={{ maxHeight: 300 }}
@@ -383,7 +383,7 @@ export function LocationSearchWithIcons({
               ) : null}
               {suggestions.length > 0 && (
                 <ScrollView
-                  keyboardShouldPersistTaps="handled"
+                  keyboardShouldPersistTaps="always"
                   nestedScrollEnabled
                   showsVerticalScrollIndicator={false}
                   style={{ maxHeight: 300 }}
