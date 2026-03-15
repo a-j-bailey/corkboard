@@ -1,11 +1,10 @@
 import { DatePicker, Host, TextField, Toggle } from '@expo/ui/swift-ui';
 import { Ionicons } from '@expo/vector-icons';
-import type { LocationSuggestion } from '@julekgwa/react-native-places-autocomplete';
 import { GlassView } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -19,13 +18,12 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LocationSearchWithIcons } from '../../../components/LocationSearchWithIcons';
 import { Colors } from '../../../constants/theme';
 import { Event, EventDate, SocialMediaHandles, useEvents } from '../../../contexts/EventContext';
+import { useLocationSelection } from '../../../contexts/LocationSelectionContext';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { parsePriceToNumber } from '../../../services/eventParser';
 import { geocodeLocation } from '../../../services/geocodingService';
-import { fetchLocationSuggestions } from '../../../services/locationSearchService';
 
 // Day settings interface
 interface DaySettings {
@@ -279,6 +277,33 @@ export default function PreviewScreen() {
   // Validation errors state
   const [errors, setErrors] = useState<ValidationErrors>({});
 
+  const { pendingLocationSelection, setPendingLocationSelection } = useLocationSelection();
+
+  // When returning from location-search modal, apply the selected location
+  useFocusEffect(
+    useCallback(() => {
+      if (pendingLocationSelection) {
+        const displayName = pendingLocationSelection.display_name || '';
+        setAddress(displayName);
+        if (pendingLocationSelection.lat !== undefined && pendingLocationSelection.lon !== undefined) {
+          const lat = typeof pendingLocationSelection.lat === 'string' ? parseFloat(pendingLocationSelection.lat) : pendingLocationSelection.lat;
+          const lon = typeof pendingLocationSelection.lon === 'string' ? parseFloat(pendingLocationSelection.lon) : pendingLocationSelection.lon;
+          if (!isNaN(lat) && !isNaN(lon)) {
+            setSelectedLatitude(lat);
+            setSelectedLongitude(lon);
+          } else {
+            setSelectedLatitude(undefined);
+            setSelectedLongitude(undefined);
+          }
+        } else {
+          setSelectedLatitude(undefined);
+          setSelectedLongitude(undefined);
+        }
+        setErrors((prev) => ({ ...prev, address: undefined }));
+        setPendingLocationSelection(null);
+      }
+    }, [pendingLocationSelection, setPendingLocationSelection])
+  );
 
   // Update state when params change
   useEffect(() => {
@@ -888,79 +913,36 @@ export default function PreviewScreen() {
               }}>
                 Location
               </Text>
-              <LocationSearchWithIcons
-                placeholder="Search for a location..."
-                fetchSuggestions={(q) => fetchLocationSuggestions(q, userLocation ?? undefined, 10)}
-                onLocationSelect={(location: LocationSuggestion) => {
-                const displayName = location.display_name || '';
-                setAddress(displayName);
-                // Extract coordinates if available (lat/lon may be strings, so parse them)
-                if (location.lat !== undefined && location.lon !== undefined) {
-                  const lat = typeof location.lat === 'string' ? parseFloat(location.lat) : location.lat;
-                  const lon = typeof location.lon === 'string' ? parseFloat(location.lon) : location.lon;
-                  if (!isNaN(lat) && !isNaN(lon)) {
-                    setSelectedLatitude(lat);
-                    setSelectedLongitude(lon);
-                  } else {
-                    setSelectedLatitude(undefined);
-                    setSelectedLongitude(undefined);
-                  }
-                } else {
-                  // Clear coordinates if not available
-                  setSelectedLatitude(undefined);
-                  setSelectedLongitude(undefined);
-                }
-                if (errors.address) {
-                  setErrors(prev => ({ ...prev, address: undefined }));
-                }
-              }}
-                onQueryChange={(query: string) => {
-                  // Allow manual typing - clear coordinates when user types manually
-                  if (query !== address) {
-                    setSelectedLatitude(undefined);
-                    setSelectedLongitude(undefined);
-                  }
-                  setAddress(query);
-                  if (errors.address) {
-                    setErrors(prev => ({ ...prev, address: undefined }));
-                  }
+              <TouchableOpacity
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push({
+                    pathname: '/add/location-search',
+                    params: address ? { initialAddress: address } : undefined,
+                  });
                 }}
-                debounceMs={300}
-                showRecentSearches
-                containerStyle={{
-                  backgroundColor: 'transparent',
-                }}
-                inputContainerStyle={{
-                  marginBottom: 0,
-                }}
-                inputStyle={{
-                  fontSize: 16,
-                  color: textColor,
+                activeOpacity={0.7}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingVertical: 12,
                   paddingHorizontal: 4,
                 }}
-                suggestionStyle={{
-                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                  borderRadius: 12,
-                }}
-                textStyle={{
-                  color: textColor,
-                  fontSize: 16,
-                  fontWeight: '500',
-                }}
-                theme={{
-                  colors: {
-                    primary: tintColor,
-                    onSurface: textColor,
-                    onSurfaceVariant: textColor + 'CC',
-                    surface: 'rgba(255, 255, 255, 0.12)',
-                    outline: 'rgba(255, 255, 255, 0.2)',
-                  },
-                  spacing: {
-                    iconMargin: 12,
-                    iconPadding: 8,
-                  },
-                }}
-              />
+              >
+                <Text
+                  style={{
+                    fontSize: 16,
+                    color: address ? textColor : textColor + '99',
+                    fontWeight: '500',
+                    flex: 1,
+                  }}
+                  numberOfLines={1}
+                >
+                  {address || 'Search for a location...'}
+                </Text>
+                <Ionicons name="chevron-forward" size={20} color={textColor + '99'} />
+              </TouchableOpacity>
               {errors.address && (
                 <Text style={{
                   color: errorColor,
@@ -1295,7 +1277,7 @@ export default function PreviewScreen() {
         </ScrollView>
 
         {/* Save Button */}
-        <SafeAreaView edges={['bottom']} style={{ backgroundColor }}>
+        <View style={{ backgroundColor }}>
           <View style={{
             paddingHorizontal: 20,
             paddingVertical: 12,
@@ -1334,7 +1316,7 @@ export default function PreviewScreen() {
               </Text>
             </TouchableOpacity>
           </View>
-        </SafeAreaView>
+        </View>
       </KeyboardAvoidingView>
 
     </SafeAreaView>
