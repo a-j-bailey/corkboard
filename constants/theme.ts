@@ -1,35 +1,49 @@
 /**
  * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * Palette: Vibrant Coral, Golden Pollen, Yellow Green, Steel Blue, Dusty Grape.
  */
 
 import { Platform } from 'react-native';
 
-const tintColorLight = '#3AA99F';
-const tintColorDark = '#24837B';
+/** Steel Blue – primary tint (professional, trusted) */
+const tintColorLight = '#1982C4';
+const tintColorDark = '#4A9AD4';
+
+/** Palette colors for use across the app */
+export const Palette = {
+  coral: '#FF595E',
+  goldenPollen: '#FFCA3A',
+  yellowGreen: '#8AC926',
+  steelBlue: '#1982C4',
+  dustyGrape: '#6A4C93',
+} as const;
 
 export const Colors = {
   light: {
-    text: '#11181C',
-    background: '#fff',
+    text: '#1A1A1A',
+    background: '#FFFFFF',
+    backgroundSecondary: '#F5F5F5',
     tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
+    icon: '#525252',
+    tabIconDefault: '#737373',
     tabIconSelected: tintColorLight,
-    error: '#DC2626',
-    green: '#66800B',
-    yellow: '#D0A215',
+    error: Palette.coral,
+    green: Palette.yellowGreen,
+    yellow: Palette.goldenPollen,
+    ...Palette,
   },
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
+    text: '#F0F0F0',
+    background: '#121212',
+    backgroundSecondary: '#1E1E1E',
     tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
+    icon: '#A3A3A3',
+    tabIconDefault: '#737373',
     tabIconSelected: tintColorDark,
-    error: '#EF4444',
-    green: '#879A39',
-    yellow: '#D0A215',
+    error: Palette.coral,
+    green: Palette.yellowGreen,
+    yellow: Palette.goldenPollen,
+    ...Palette,
   },
 };
 
