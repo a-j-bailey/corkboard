@@ -63,7 +63,10 @@ export function EventProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [bookmarkedEventIds, setBookmarkedEventIds] = useState<Set<string>>(new Set());
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
-  const [distanceFilter, setDistanceFilter] = useState<DistanceFilter>(null);
+  // In production, default to filtering by distance (25 mi); "All" only in __DEV__ when user selects it
+  const [distanceFilter, setDistanceFilter] = useState<DistanceFilter>(
+    __DEV__ ? null : 25
+  );
   const [locationAvailable, setLocationAvailable] = useState(false);
   const { user } = useUser();
 
@@ -83,17 +86,25 @@ export function EventProvider({ children }: { children: ReactNode }) {
     try {
       setLoading(true);
       setError(null);
-      
-      // Only apply distance filter if location is available and filter is set
-      const maxDistance = userLocation && distanceFilter !== null ? distanceFilter : null;
+
+      // In production: require location; do not show events until location is granted.
+      if (!__DEV__ && !userLocation) {
+        setEvents([]);
+        setLoading(false);
+        return;
+      }
+
+      // Apply distance filter when location is available and a filter is set (or in prod we always have a default).
+      const maxDistance =
+        userLocation && distanceFilter !== null ? distanceFilter : null;
+
       const fetchedEvents = await eventService.getEvents(
         user?.id,
         userLocation,
         maxDistance
       );
       setEvents(fetchedEvents);
-      
-      // Update bookmarked IDs set
+
       if (user) {
         const bookmarkedIds = await bookmarkService.getBookmarkedEventIds(user.id);
         setBookmarkedEventIds(bookmarkedIds);
