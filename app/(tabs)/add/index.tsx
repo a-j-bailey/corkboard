@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { GlassView } from 'expo-glass-effect';
+import { GlassView, isGlassEffectAPIAvailable } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
@@ -173,34 +173,66 @@ export default function AddScreen() {
                 activeOpacity={0.7}
                 style={{ width: '100%', marginBottom: 16 }}
               >
-                <GlassView
-                  style={{
-                    height: 64,
-                    borderRadius: 32,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    paddingHorizontal: 32,
-                    overflow: 'hidden',
-                  }}
-                  tintColor={tintColor}
-                  glassEffectStyle="regular"
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <Ionicons
-                      name="camera-outline"
-                      size={28}
-                      color={textColor}
-                    />
-                    <ThemedText
-                      style={{
-                        fontSize: 18,
-                        fontWeight: '600',
-                      }}
-                    >
-                      Scan Poster
-                    </ThemedText>
+                {isGlassEffectAPIAvailable() ? (
+                  <GlassView
+                    colorScheme={colorScheme}
+                    style={{
+                      height: 64,
+                      borderRadius: 32,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      paddingHorizontal: 32,
+                      overflow: 'hidden',
+                    }}
+                    tintColor={tintColor}
+                    glassEffectStyle="regular"
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      <Ionicons
+                        name="camera-outline"
+                        size={28}
+                        color={textColor}
+                      />
+                      <ThemedText
+                        style={{
+                          fontSize: 18,
+                          fontWeight: '600',
+                        }}
+                      >
+                        Scan Poster
+                      </ThemedText>
+                    </View>
+                  </GlassView>
+                ) : (
+                  <View
+                    style={{
+                      height: 64,
+                      borderRadius: 32,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      paddingHorizontal: 32,
+                      overflow: 'hidden',
+                      backgroundColor: tintColor,
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      <Ionicons
+                        name="camera-outline"
+                        size={28}
+                        color="#fff"
+                      />
+                      <ThemedText
+                        style={{
+                          fontSize: 18,
+                          fontWeight: '600',
+                          color: '#fff',
+                        }}
+                      >
+                        Scan Poster
+                      </ThemedText>
+                    </View>
                   </View>
-                </GlassView>
+                )}
               </TouchableOpacity>
 
               {/* Photo Library Button */}
@@ -211,6 +243,7 @@ export default function AddScreen() {
                 style={{ width: '100%' }}
               >
                 <GlassView
+                  colorScheme={colorScheme}
                   style={{
                     height: 64,
                     borderRadius: 32,
