@@ -15,20 +15,23 @@ export async function processPosterImage(
   const onComplete = options?.onComplete;
 
   try {
-    const openaiApiKey =
-      Constants.expoConfig?.extra?.openaiApiKey || process.env.EXPO_PUBLIC_OPENAI_API_KEY;
+    const xaiApiKey =
+      Constants.expoConfig?.extra?.xaiApiKey ||
+      process.env.EXPO_PUBLIC_XAI_API_KEY ||
+      // Fallback to deprecated OpenAI env var for backward compatibility
+      process.env.EXPO_PUBLIC_OPENAI_API_KEY;
 
-    if (!openaiApiKey) {
-      console.error('[processPosterImage] No OpenAI API key found');
+    if (!xaiApiKey) {
+      console.error('[processPosterImage] No xAI API key found');
       Alert.alert(
         'API Key Required',
-        'OpenAI API key is required. Please set EXPO_PUBLIC_OPENAI_API_KEY in your environment or add openaiApiKey to app.json extra config.'
+        'xAI API key is required. Please set EXPO_PUBLIC_XAI_API_KEY in your environment or add xaiApiKey to app.json extra config.'
       );
       onComplete?.();
       return;
     }
 
-    const eventData = await extractEventFromImage(imageUri, openaiApiKey);
+    const eventData = await extractEventFromImage(imageUri, xaiApiKey);
 
     router.push({
       pathname: '/add/preview',

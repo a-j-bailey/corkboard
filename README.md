@@ -106,6 +106,19 @@ eas build --platform ios --profile development
 
 After installing the development build on your device, you can run `npx expo start --dev-client` to connect to it.
 
+## AI configuration (xAI)
+
+This app uses **xAI** via its **OpenAI-compatible API** to extract structured event details directly from poster images. The vision extraction call uses model **`grok-4-1-fast-reasoning`**.
+
+- **Required env vars** (in `.env`):
+  - `EXPO_PUBLIC_XAI_API_KEY` – your xAI API key.
+  - `EXPO_PUBLIC_XAI_BASE_URL` – optional, defaults to `https://api.x.ai/v1`.
+- **Expo config** (`app.json` → `expo.extra`):
+  - `xaiApiKey` – optional override for the runtime API key.
+  - `xaiBaseUrl` – optional override for the base URL (defaults to `https://api.x.ai/v1`).
+
+If `EXPO_PUBLIC_XAI_API_KEY` and `xaiApiKey` are not set, the app will fall back to `EXPO_PUBLIC_OPENAI_API_KEY` for backward compatibility, but this is **deprecated** and may be removed in the future.
+
 ## Learn more
 
 To learn more about developing your project with Expo, look at the following resources:

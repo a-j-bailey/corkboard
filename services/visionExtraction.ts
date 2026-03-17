@@ -45,11 +45,12 @@ async function convertImageToBase64(uri: string): Promise<string> {
 }
 
 /**
- * Extracts event details directly from image using OpenAI vision model
- * This is more accurate than OCR + parsing because the model understands context
+ * Extracts event details directly from image using an xAI vision model
+ * via xAI's OpenAI-compatible API. This is more accurate than OCR + parsing
+ * because the model understands context.
  *
  * @param imageUri - URI of the image to process
- * @param apiKey - OpenAI API key
+ * @param apiKey - xAI API key
  */
 export async function extractEventFromImage(
   imageUri: string,
@@ -59,7 +60,9 @@ export async function extractEventFromImage(
 
   // Check if API key is available
   if (!apiKey || apiKey.trim().length === 0) {
-    throw new Error('OpenAI API key is required for vision-based extraction. Please set the API key in your environment.');
+    throw new Error(
+      'xAI API key is required for vision-based extraction. Please set the xAI API key in your environment.'
+    );
   }
 
   try {
@@ -73,16 +76,26 @@ export async function extractEventFromImage(
       throw new Error(`Failed to convert image to base64: ${convertError instanceof Error ? convertError.message : 'Unknown error'}`);
     }
 
-    // Configure OpenAI vision model
+    // Configure xAI vision model via OpenAI-compatible API
     let openaiClient;
     let model;
     try {
-      openaiClient = createOpenAI({ apiKey });
-      model = openaiClient('gpt-4o');
-      console.log('[VisionExtraction] Calling OpenAI API...');
+      openaiClient = createOpenAI({
+        apiKey,
+        baseURL: process.env.EXPO_PUBLIC_XAI_BASE_URL || 'https://api.x.ai/v1',
+      });
+      model = openaiClient('grok-4-1-fast-reasoning');
+      console.log('[VisionExtraction] Calling xAI API...');
     } catch (clientError) {
-      console.error('[VisionExtraction] Failed to configure OpenAI client:', clientError instanceof Error ? clientError.message : clientError);
-      throw new Error(`Failed to configure OpenAI client: ${clientError instanceof Error ? clientError.message : 'Unknown error'}`);
+      console.error(
+        '[VisionExtraction] Failed to configure xAI client:',
+        clientError instanceof Error ? clientError.message : clientError
+      );
+      throw new Error(
+        `Failed to configure xAI client: ${
+          clientError instanceof Error ? clientError.message : 'Unknown error'
+        }`
+      );
     }
 
     // Use vision model to extract event details directly from image
@@ -139,7 +152,7 @@ If there are multiple events on the poster, extract all of them. Return the info
       }
       
       // Build error message
-      let errorMessage = 'OpenAI API call failed';
+      let errorMessage = 'xAI API call failed';
       if (statusCode) {
         errorMessage += ` (Status: ${statusCode})`;
       }
