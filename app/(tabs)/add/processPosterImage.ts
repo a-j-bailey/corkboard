@@ -44,6 +44,7 @@ export async function processPosterImage(
   } catch (error) {
     console.error('[processPosterImage] Error processing image:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    const errorForThrow = error instanceof Error ? error : new Error(errorMessage);
 
     let userMessage = 'Failed to extract event information. ';
     if (errorMessage.includes('No text detected') || errorMessage.includes('No text content')) {
@@ -75,5 +76,6 @@ export async function processPosterImage(
       },
     ]);
     onComplete?.();
+    throw errorForThrow;
   }
 }
