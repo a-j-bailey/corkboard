@@ -517,11 +517,10 @@ export default function PreviewScreen() {
       };
 
       console.log('[PreviewScreen] Saving event:', JSON.stringify(eventData, null, 2));
-      const newEvent = await addEvent(eventData, posterImageUri);
+      await addEvent(eventData, posterImageUri);
 
-      // Clear stack and navigate to home events page
-      // Expo Router: (tabs)/index matches "/". Generated Href omits "/" so we assert.
-      router.replace(('/' as unknown) as import('expo-router').Href);
+      // Pop out of add stack and land on Board (home). replace('/') often stays on add tab.
+      router.dismissTo('/(tabs)/index');
     } catch (error) {
       console.error('[PreviewScreen] Error saving event:', error);
       Alert.alert('Error', 'Failed to save event. Please try again.');
