@@ -163,7 +163,7 @@ If there are multiple events on the poster, extract all of them. Return the info
       } else if (apiError instanceof Error && apiError.message) {
         errorMessage += `: ${apiError.message}`;
       }
-      
+
       console.error('[VisionExtraction] API error:', errorMessage);
       throw new Error(errorMessage);
     }

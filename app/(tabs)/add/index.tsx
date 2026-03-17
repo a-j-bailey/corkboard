@@ -5,11 +5,10 @@ import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Dimensions,
   StyleSheet,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -106,10 +105,6 @@ export default function CameraScreen() {
     } catch (error) {
       console.error('[CameraScreen] Capture error:', error);
       setIsCapturing(false);
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      if (!message.toLowerCase().includes('cancel')) {
-        Alert.alert('Capture Error', 'Failed to take photo. Please try again.');
-      }
     }
   };
 

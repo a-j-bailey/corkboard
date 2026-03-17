@@ -519,8 +519,7 @@ export default function PreviewScreen() {
       console.log('[PreviewScreen] Saving event:', JSON.stringify(eventData, null, 2));
       await addEvent(eventData, posterImageUri);
 
-      // Pop out of add stack and land on Board (home). replace('/') often stays on add tab.
-      router.dismissTo('/(tabs)/index');
+      router.dismissAll();
     } catch (error) {
       console.error('[PreviewScreen] Error saving event:', error);
       Alert.alert('Error', 'Failed to save event. Please try again.');
