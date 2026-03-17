@@ -63,7 +63,7 @@ This is the easiest way to build for a physical iOS device. EAS Build handles co
    
    For a production build:
    ```bash
-   eas build --platform ios --profile production
+   eas build --platform ios --profile production --auto-submit
    ```
 
 5. **Install on your device**:

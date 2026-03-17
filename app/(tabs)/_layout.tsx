@@ -18,7 +18,7 @@ export default function TabsLayout() {
   const { user } = useUser();
   const segments = useSegments();
   const lastSegment = segments[segments.length - 1];
-  const hideTabs = lastSegment === 'camera' || lastSegment === 'preview';
+  const hideTabs = lastSegment === 'add' || lastSegment === 'preview';
   const useNativeTabs = isGlassEffectAPIAvailable();
 
   if (useNativeTabs) {
@@ -29,13 +29,13 @@ export default function TabsLayout() {
             <NativeTabs.Trigger.Icon sf="square.grid.2x2.fill" />
             <NativeTabs.Trigger.Label hidden>Board</NativeTabs.Trigger.Label>
           </NativeTabs.Trigger>
-          <NativeTabs.Trigger name="profile">
-            <NativeTabs.Trigger.Icon sf="person.fill" />
-            <NativeTabs.Trigger.Label hidden>Profile</NativeTabs.Trigger.Label>
-          </NativeTabs.Trigger>
           <NativeTabs.Trigger name="add">
             <NativeTabs.Trigger.Icon sf="pin.fill" />
             <NativeTabs.Trigger.Label hidden>Add</NativeTabs.Trigger.Label>
+          </NativeTabs.Trigger>
+          <NativeTabs.Trigger name="profile">
+            <NativeTabs.Trigger.Icon sf="person.fill" />
+            <NativeTabs.Trigger.Label hidden>Profile</NativeTabs.Trigger.Label>
           </NativeTabs.Trigger>
         </NativeTabs>
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />

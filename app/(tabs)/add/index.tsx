@@ -1,280 +1,296 @@
 import { Ionicons } from '@expo/vector-icons';
-import { GlassView, isGlassEffectAPIAvailable } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
-import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  Camera,
+  useCameraDevice,
+  useCameraPermission,
+} from 'react-native-vision-camera';
 import { ThemedText } from '../../../components/themed-text';
 import { Colors } from '../../../constants/theme';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { processPosterImage } from './processPosterImage';
 
-export default function AddScreen() {
+const POSTER_ASPECT_RATIO = 2 / 3; // width / height
+
+/**
+ * Map overlay frame rect (layout points from measureInWindow) to snapshot image pixels.
+ * Snapshot is a screenshot of the preview, so we scale from window size to snapshot size.
+ */
+function frameRectToSnapshotCrop(
+  frameRect: { x: number; y: number; width: number; height: number },
+  snapshotWidth: number,
+  snapshotHeight: number
+): { originX: number; originY: number; width: number; height: number } {
+  const { width: windowW, height: windowH } = Dimensions.get('window');
+  const scaleX = snapshotWidth / windowW;
+  const scaleY = snapshotHeight / windowH;
+
+  let originX = Math.round(frameRect.x * scaleX);
+  let originY = Math.round(frameRect.y * scaleY);
+  let width = Math.round(frameRect.width * scaleX);
+  let height = Math.round(frameRect.height * scaleY);
+
+  originX = Math.max(0, originX);
+  originY = Math.max(0, originY);
+  width = Math.min(width, snapshotWidth - originX);
+  height = Math.min(height, snapshotHeight - originY);
+  width = Math.max(1, width);
+  height = Math.max(1, height);
+
+  return { originX, originY, width, height };
+}
+
+export default function CameraScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colorScheme } = useTheme();
-  const backgroundColor = Colors[colorScheme].background;
-  const textColor = Colors[colorScheme].text;
-  const tintColor = Colors[colorScheme].tint;
-  const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const cameraRef = useRef<Camera>(null);
+  const frameRef = useRef<View>(null);
+  const [isCameraReady, setIsCameraReady] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false);
 
-  const processImage = async (imageUri: string) => {
-    setIsProcessing(true);
-    await processPosterImage(imageUri, router, {
-      onComplete: () => {
-        setTimeout(() => {
-          setIsProcessing(false);
-          setCapturedImageUri(null);
-        }, 500);
-      },
-    });
-  };
+  const { hasPermission, requestPermission } = useCameraPermission();
+  const device = useCameraDevice('back');
 
-  const pickImage = async () => {
+  const handleCapture = async () => {
+    if (!cameraRef.current || !isCameraReady || isCapturing) return;
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setIsCapturing(true);
+
     try {
-      // Request media library permissions
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        console.warn('[AddScreen] Media library permission not granted');
-        Alert.alert(
-          'Permission Required',
-          'We need access to your photo library to select an image.'
-        );
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [3, 4],
-        quality: 0.8,
+      const frameRect = await new Promise<{
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      }>((resolve) => {
+        frameRef.current?.measureInWindow((x, y, width, height) => {
+          resolve({ x, y, width, height });
+        });
       });
 
-      if (!result.canceled && result.assets[0]) {
-        const imageUri = result.assets[0].uri;
-        setCapturedImageUri(imageUri);
-        await processImage(imageUri);
-      }
+      const snapshot = await cameraRef.current.takeSnapshot({
+        quality: 90,
+      });
+      const rawUri = snapshot.path.startsWith('file://')
+        ? snapshot.path
+        : `file://${snapshot.path}`;
+
+      const crop = frameRectToSnapshotCrop(
+        frameRect,
+        snapshot.width,
+        snapshot.height
+      );
+      const { uri } = await ImageManipulator.manipulateAsync(
+        rawUri,
+        [{ crop }],
+        {}
+      );
+
+      await processPosterImage(uri, router, {
+        onComplete: () => setIsCapturing(false),
+      });
     } catch (error) {
-      console.error('[AddScreen] Error picking image:', error);
-      Alert.alert('Error', 'Failed to pick image. Please try again.');
+      console.error('[CameraScreen] Capture error:', error);
+      setIsCapturing(false);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      if (!message.toLowerCase().includes('cancel')) {
+        Alert.alert('Capture Error', 'Failed to take photo. Please try again.');
+      }
     }
   };
 
-  const openPreviewForTesting = () => {
+  const handleBack = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // Temporary testing function - opens preview with empty data
-    router.push({
-      pathname: '/add/preview',
-      params: {
-        eventData: encodeURIComponent(JSON.stringify({})),
-        posterImageUri: '',
-      },
-    });
+    router.back();
   };
 
-  return (
-    <View style={{ flex: 1, backgroundColor }}>
-      {__DEV__ && (
+  if (!hasPermission) {
+    return (
+      <View style={[styles.centered, { backgroundColor: Colors[colorScheme].background }]}>
+        <ThemedText style={styles.permissionTitle}>Camera access needed</ThemedText>
+        <ThemedText style={[styles.permissionText, { color: Colors[colorScheme].text }]}>
+          Allow camera access to scan event posters.
+        </ThemedText>
         <TouchableOpacity
-          onPress={openPreviewForTesting}
-          style={{
-            position: 'absolute',
-            top: insets.top + 12,
-            right: 16,
-            width: 44,
-            height: 44,
-            borderRadius: 22,
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-          }}
-          activeOpacity={0.8}
+          onPress={requestPermission}
+          style={[styles.permissionButton, { backgroundColor: Colors[colorScheme].tint }]}
         >
-          <Ionicons name="add" size={24} color={Colors[colorScheme].tint} />
+          <ThemedText style={styles.permissionButtonText}>Grant access</ThemedText>
         </TouchableOpacity>
-      )}
+        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+          <Ionicons name="chevron-back" size={28} color={Colors[colorScheme].tint} />
+          <ThemedText style={{ color: Colors[colorScheme].tint, fontSize: 17 }}>Back</ThemedText>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
-      {capturedImageUri ? (
-        // Show captured/selected image
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 16, backgroundColor }}>
-          <View style={{ width: '100%', height: 400, borderRadius: 8, overflow: 'hidden', marginBottom: 16 }}>
-            <Image
-              source={{ uri: capturedImageUri }}
-              style={{ width: '100%', height: '100%' }}
-              resizeMode="contain"
-            />
-          </View>
-          {isProcessing && (
-            <View style={{ alignItems: 'center' }}>
-              <ActivityIndicator size="large" color="#3B82F6" />
-              <ThemedText style={{ marginTop: 16 }}>
-                Extracting event information...
-              </ThemedText>
-            </View>
-          )}
-          {!isProcessing && (
-            <TouchableOpacity
-              style={{
-                backgroundColor: '#3B82F6',
-                paddingHorizontal: 32,
-                paddingVertical: 16,
-                borderRadius: 8,
-              }}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setCapturedImageUri(null);
-              }}
-            >
-              <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>
-                Scan Another
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      ) : (
-        // Main screen with scan and library buttons
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor }}>
-          {isProcessing && (
-            <View style={{ alignItems: 'center', marginBottom: 32 }}>
-              <ActivityIndicator size="large" color="#3B82F6" />
-              <ThemedText style={{ marginTop: 16, fontSize: 16 }}>
-                Scanning document...
-              </ThemedText>
-            </View>
-          )}
-          
-          {!isProcessing && (
-            <>
-              <ThemedText type="defaultSemiBold" style={{ fontSize: 24, marginBottom: 8, textAlign: 'center' }}>
-                Scan Event Poster
-              </ThemedText>
-              <ThemedText style={{ fontSize: 16, marginBottom: 48, textAlign: 'center' }}>
-                Position the poster in the frame and tap the shutter to capture
-              </ThemedText>
+  if (device == null) {
+    return (
+      <View style={[styles.centered, { backgroundColor: Colors[colorScheme].background }]}>
+        <ThemedText style={styles.noDeviceText}>No camera device found</ThemedText>
+        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+          <Ionicons name="chevron-back" size={28} color={Colors[colorScheme].tint} />
+          <ThemedText style={{ color: Colors[colorScheme].tint, fontSize: 17 }}>Back</ThemedText>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
-              {/* Scan Poster – opens camera screen */}
-              <TouchableOpacity
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  router.push('/add/camera');
-                }}
-                disabled={isProcessing}
-                activeOpacity={0.7}
-                style={{ width: '100%', marginBottom: 16 }}
-              >
-                {isGlassEffectAPIAvailable() ? (
-                  <GlassView
-                    colorScheme={colorScheme}
-                    style={{
-                      height: 64,
-                      borderRadius: 32,
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      paddingHorizontal: 32,
-                      overflow: 'hidden',
-                    }}
-                    tintColor={tintColor}
-                    glassEffectStyle="regular"
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                      <Ionicons
-                        name="camera-outline"
-                        size={28}
-                        color={textColor}
-                      />
-                      <ThemedText
-                        style={{
-                          fontSize: 18,
-                          fontWeight: '600',
-                        }}
-                      >
-                        Scan Poster
-                      </ThemedText>
-                    </View>
-                  </GlassView>
-                ) : (
-                  <View
-                    style={{
-                      height: 64,
-                      borderRadius: 32,
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      paddingHorizontal: 32,
-                      overflow: 'hidden',
-                      backgroundColor: tintColor,
-                    }}
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                      <Ionicons
-                        name="camera-outline"
-                        size={28}
-                        color="#fff"
-                      />
-                      <ThemedText
-                        style={{
-                          fontSize: 18,
-                          fontWeight: '600',
-                          color: '#fff',
-                        }}
-                      >
-                        Scan Poster
-                      </ThemedText>
-                    </View>
-                  </View>
-                )}
-              </TouchableOpacity>
+  return (
+    <View style={styles.container}>
+      <Camera
+        ref={cameraRef}
+        style={StyleSheet.absoluteFill}
+        device={device}
+        isActive={true}
+        photo={true}
+        video={true}
+        onInitialized={() => setIsCameraReady(true)}
+      />
 
-              {/* Photo Library Button */}
-              {/* <TouchableOpacity
-                onPress={pickImage}
-                disabled={isProcessing}
-                activeOpacity={0.7}
-                style={{ width: '100%' }}
-              >
-                <GlassView
-                  colorScheme={colorScheme}
-                  style={{
-                    height: 64,
-                    borderRadius: 32,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    paddingHorizontal: 32,
-                    overflow: 'hidden',
-                  }}
-                  glassEffectStyle="regular"
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <Ionicons
-                      name="images-outline"
-                      size={28}
-                      color={textColor}
-                    />
-                    <ThemedText
-                      style={{
-                        fontSize: 18,
-                        fontWeight: '600',
-                      }}
-                    >
-                      Choose from Library
-                    </ThemedText>
-                  </View>
-                </GlassView>
-              </TouchableOpacity> */}
-            </>
+      {/* Back button */}
+      <TouchableOpacity
+        onPress={handleBack}
+        style={[styles.backButtonOverlay, { top: insets.top + 12 }]}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+      >
+        <Ionicons name="chevron-back" size={32} color="#fff" />
+      </TouchableOpacity>
+
+      {/* 2:3 poster frame overlay (measured for crop) */}
+      <View style={styles.overlayContainer} pointerEvents="none">
+        <View
+          ref={frameRef}
+          style={[styles.posterFrame, { aspectRatio: POSTER_ASPECT_RATIO }]}
+          collapsable={false}
+        />
+      </View>
+
+      {/* Bottom area: shutter button */}
+      <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 24 }]}>
+        <TouchableOpacity
+          onPress={handleCapture}
+          disabled={!isCameraReady || isCapturing}
+          activeOpacity={0.8}
+          style={[
+            styles.shutterButton,
+            (!isCameraReady || isCapturing) && styles.shutterButtonDisabled,
+          ]}
+        >
+          {isCapturing ? (
+            <ActivityIndicator size="small" color="#333" />
+          ) : (
+            <View style={styles.shutterInner} />
           )}
-        </View>
-      )}
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  permissionTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  permissionText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 24,
+    opacity: 0.9,
+  },
+  permissionButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginBottom: 32,
+  },
+  permissionButtonText: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '600',
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  backButtonOverlay: {
+    position: 'absolute',
+    left: 16,
+    zIndex: 10,
+  },
+  noDeviceText: {
+    fontSize: 18,
+    marginBottom: 24,
+  },
+  overlayContainer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  posterFrame: {
+    width: '80%',
+    maxHeight: '75%',
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.8)',
+    borderRadius: 12,
+    backgroundColor: 'transparent',
+  },
+  bottomBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shutterButton: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 4,
+    borderColor: 'rgba(255,255,255,0.6)',
+  },
+  shutterButtonDisabled: {
+    opacity: 0.6,
+  },
+  shutterInner: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
+});
