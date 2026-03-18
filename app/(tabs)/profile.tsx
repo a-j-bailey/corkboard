@@ -1,13 +1,13 @@
-import { Button, Host, Menu } from '@expo/ui/swift-ui';
-import { controlSize, labelStyle, padding } from '@expo/ui/swift-ui/modifiers';
+import { Host } from '@expo/ui/swift-ui';
 import { Ionicons } from '@expo/vector-icons';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { GlassView } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
+import type { ReactNode } from 'react';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from '../../components/themed-text';
 import { Colors } from '../../constants/theme';
@@ -75,318 +75,204 @@ export default function ProfileScreen() {
   if (user) {
     // User is logged in - show profile info
     const displayName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
-    const email = user.email || '';
-    const initials = displayName
-      .split(' ')
-      .map((n: string) => n.charAt(0))
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
+
+    const screenBackgroundColor = Colors[colorScheme].backgroundSecondary;
+    const cardBackgroundColor = Colors[colorScheme].background;
+    const separatorColor = Colors[colorScheme].backgroundSecondary + 'CC';
+    const chevronColor = Colors[colorScheme].text;
+    const circleIconColor = '#FFFFFF';
+
+    const openComingSoon = () => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      Alert.alert('Settings', 'Coming soon.');
+    };
+
+    const SettingsRow = ({
+      title,
+      subtitle,
+      leftIcon,
+      onPress,
+      showChevron = true,
+      showSeparator = true,
+    }: {
+      title: string;
+      subtitle?: string;
+      leftIcon?: ReactNode | null;
+      onPress: () => void | Promise<void>;
+      showChevron?: boolean;
+      showSeparator?: boolean;
+    }) => {
+      return (
+        <>
+          <TouchableOpacity
+            onPress={onPress}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            style={{ backgroundColor: 'transparent' }}
+          >
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingVertical: 15,
+                paddingHorizontal: 16,
+                gap: 12,
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: leftIcon ? 12 : 0, flex: 1 }}>
+                {leftIcon}
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: textColor, fontWeight: '600', fontSize: 17 }}>{title}</Text>
+                  {subtitle ? (
+                    <Text style={{ color: textColor, opacity: 0.6, fontSize: 14, marginTop: 2 }}>{subtitle}</Text>
+                  ) : null}
+                </View>
+              </View>
+
+              {showChevron ? (
+                <Ionicons name="chevron-forward" size={18} color={chevronColor} style={{ opacity: 0.35 }} />
+              ) : (
+                <View style={{ width: 18 }} />
+              )}
+            </View>
+          </TouchableOpacity>
+          {showSeparator ? <View style={{ height: 1, backgroundColor: separatorColor }} /> : null}
+        </>
+      );
+    };
 
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: screenBackgroundColor }}>
+        {/* Top bar */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, marginBottom: 6 }}>
+          <View style={{ width: 40, height: 40 }} />
+          <Text style={{ color: textColor, fontSize: 20, fontWeight: '700' }}>Settings</Text>
+          <View style={{ width: 40 }} />
+        </View>
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{
-            paddingHorizontal: 20,
-            paddingTop: 24,
+            paddingHorizontal: 16,
+            paddingTop: 12,
             paddingBottom: insets.bottom + 24,
-            gap: 24,
+            gap: 16,
           }}
           showsVerticalScrollIndicator={false}
         >
           {/* Profile Header Card */}
-          {canShowGlass ? (
-            <GlassView
-              style={{
-                borderRadius: 24,
-                padding: 24,
-                overflow: 'hidden',
-              }}
-              glassEffectStyle="regular"
-            >
-              <View style={{ flexDirection: 'row', gap: 16, alignItems: 'center' }}>
-                {/* Avatar */}
-                <GlassView
-                  style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 22,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    overflow: 'hidden',
-                  }}
-                  glassEffectStyle="regular"
-                  tintColor={tintColor}
-                >
-                  <Text
-                    style={{
-                      fontSize: 16,
-                      fontWeight: '700',
-                      color: Colors[colorScheme].background,
-                    }}
-                  >
-                    {initials}
-                  </Text>
-                </GlassView>
-
-                {/* User Info */}
-                <View style={{ flex: 1, justifyContent: 'center' }}>
-                  <ThemedText
-                    type="title"
-                    style={{
-                      fontSize: 22,
-                      fontWeight: '700',
-                      marginBottom: 0,
-                    }}
-                  >
-                    {displayName}
-                  </ThemedText>
-                </View>
-
-                {/* Menu - larger touch target for easier selection */}
-                <Host style={{ width: 56, height: 56, borderRadius: 28, overflow: 'hidden' }}>
-                  <Menu
-                    systemImage="ellipsis"
-                    modifiers={[labelStyle('iconOnly')]}
-                    label={<Button systemImage="ellipsis" modifiers={[labelStyle('iconOnly')]} label="Menu Options" />}
-                  >
-                    <Button
-                      label="Sign Out"
-                      systemImage="rectangle.portrait.and.arrow.right"
-                      modifiers={[padding({ vertical: 14, horizontal: 20 }), controlSize('large')]}
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                        signOut();
-                      }}
-                      role="destructive"
-                    />
-                  </Menu>
-                </Host>
+          <View
+            style={{
+              backgroundColor: cardBackgroundColor,
+              borderRadius: 22,
+              paddingVertical: 14,
+              paddingHorizontal: 16,
+            }}
+            accessibilityRole="button"
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <View
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  backgroundColor: '#FF7A45',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+              >
+                <Ionicons name="happy-outline" size={20} color={textColor} />
               </View>
-            </GlassView>
-          ) : (
-            <View style={{ borderRadius: 24, padding: 24, overflow: 'hidden', backgroundColor: backgroundColor + 'E6' }}>
-              <View style={{ flexDirection: 'row', gap: 16, alignItems: 'center' }}>
-                <View
-                  style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 22,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    backgroundColor: tintColor + '40',
-                  }}
-                >
-                  <Text style={{ fontSize: 16, fontWeight: '700', color: Colors[colorScheme].background }}>{initials}</Text>
-                </View>
-                <View style={{ flex: 1, justifyContent: 'center' }}>
-                  <ThemedText type="title" style={{ fontSize: 22, fontWeight: '700', marginBottom: 0 }}>
-                    {displayName}
-                  </ThemedText>
-                </View>
-                <View style={{ width: 56, height: 56 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: textColor, fontWeight: '700', fontSize: 18 }}>{displayName}</Text>
               </View>
             </View>
-          )}
+          </View>
 
-          {/* Actions Section */}
-          <View style={{ gap: 16 }}>
-            {/* Bookmarks Button */}
-            <TouchableOpacity
+          {/* Bookmarks + Submissions */}
+          <View style={{ backgroundColor: cardBackgroundColor, borderRadius: 18, overflow: 'hidden' }}>
+            <SettingsRow
+              title="Bookmarks"
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 router.push('/bookmarks');
               }}
-              activeOpacity={0.7}
-            >
-              {canShowGlass ? (
-                <GlassView
-                  style={{
-                    borderRadius: 20,
-                    paddingVertical: 18,
-                    paddingHorizontal: 20,
-                    overflow: 'hidden',
-                  }}
-                  glassEffectStyle="regular"
-                  isInteractive
-                >
+              leftIcon={
                 <View
                   style={{
-                    flexDirection: 'row',
+                    width: 32,
+                    height: 32,
+                    borderRadius: 16,
+                    backgroundColor: Colors[colorScheme].goldenPollen,
+                    justifyContent: 'center',
                     alignItems: 'center',
-                    justifyContent: 'space-between',
                   }}
                 >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-                    <View
-                      style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: 22,
-                        backgroundColor: yellowColor + '20',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                      }}
-                    >
-                      <Ionicons name="bookmark-outline" size={22} color={yellowColor} />
-                    </View>
-                    <View>
-                      <Text
-                        style={{
-                          color: textColor,
-                          fontWeight: '600',
-                          fontSize: 17,
-                        }}
-                      >
-                        Bookmarks
-                      </Text>
-                      <Text
-                        style={{
-                          color: textColor,
-                          opacity: 0.6,
-                          fontSize: 14,
-                          marginTop: 2,
-                        }}
-                      >
-                        View your saved events
-                      </Text>
-                    </View>
-                  </View>
-                  <Ionicons
-                    name="chevron-forward"
-                    size={20}
-                    color={textColor}
-                    style={{ opacity: 0.4 }}
-                  />
+                  <Ionicons name="bookmark-outline" size={18} color={circleIconColor} />
                 </View>
-              </GlassView>
-              ) : (
+              }
+              showSeparator
+            />
+            <SettingsRow
+              title="Submissions"
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push('/submissions');
+              }}
+              leftIcon={
                 <View
                   style={{
-                    borderRadius: 20,
-                    paddingVertical: 18,
-                    paddingHorizontal: 20,
-                    overflow: 'hidden',
-                    backgroundColor: backgroundColor + 'E6',
+                    width: 32,
+                    height: 32,
+                    borderRadius: 16,
+                    backgroundColor: Colors[colorScheme].tint,
+                    justifyContent: 'center',
+                    alignItems: 'center',
                   }}
                 >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-                      <View
-                        style={{
-                          width: 44,
-                          height: 44,
-                          borderRadius: 22,
-                          backgroundColor: yellowColor + '20',
-                          justifyContent: 'center',
-                          alignItems: 'center',
-                        }}
-                      >
-                        <Ionicons name="bookmark-outline" size={22} color={yellowColor} />
-                      </View>
-                      <View>
-                        <Text style={{ color: textColor, fontWeight: '600', fontSize: 17 }}>Bookmarks</Text>
-                        <Text style={{ color: textColor, opacity: 0.6, fontSize: 14, marginTop: 2 }}>
-                          View your saved events
-                        </Text>
-                      </View>
-                    </View>
-                    <Ionicons name="chevron-forward" size={20} color={textColor} style={{ opacity: 0.4 }} />
-                  </View>
+                  <Ionicons name="pin-outline" size={18} color={circleIconColor} />
                 </View>
-              )}
-            </TouchableOpacity>
+              }
+              showSeparator={false}
+            />
+          </View>
 
-            {/* Feedback Button */}
-            <TouchableOpacity
+          {/* Resources */}
+          <Text style={{ color: Colors[colorScheme].icon, opacity: 0.55, fontSize: 15, fontWeight: '600', marginTop: 16 }}>
+            Resources
+          </Text>
+          <View style={{ backgroundColor: cardBackgroundColor, borderRadius: 18, overflow: 'hidden' }}>
+            <SettingsRow
+              title="Support & Feedback"
               onPress={() => {
                 void handleOpenUserJotFeedback();
               }}
-              activeOpacity={0.7}
-            >
-              {canShowGlass ? (
-                <GlassView
-                  style={{
-                    borderRadius: 20,
-                    paddingVertical: 18,
-                    paddingHorizontal: 20,
-                    overflow: 'hidden',
-                  }}
-                  glassEffectStyle="regular"
-                  isInteractive
-                >
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                    }}
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-                      <View
-                        style={{
-                          width: 44,
-                          height: 44,
-                          borderRadius: 22,
-                          backgroundColor: tintColor + '20',
-                          justifyContent: 'center',
-                          alignItems: 'center',
-                        }}
-                      >
-                        <Ionicons name="chatbubble-ellipses-outline" size={22} color={tintColor} />
-                      </View>
-                      <View>
-                        <Text style={{ color: textColor, fontWeight: '600', fontSize: 17 }}>Feedback</Text>
-                        <Text style={{ color: textColor, opacity: 0.6, fontSize: 14, marginTop: 2 }}>
-                          Share ideas & report bugs
-                        </Text>
-                      </View>
-                    </View>
-                    <Ionicons
-                      name="chevron-forward"
-                      size={20}
-                      color={textColor}
-                      style={{ opacity: 0.4 }}
-                    />
-                  </View>
-                </GlassView>
-              ) : (
+              leftIcon={
                 <View
                   style={{
-                    borderRadius: 20,
-                    paddingVertical: 18,
-                    paddingHorizontal: 20,
-                    overflow: 'hidden',
-                    backgroundColor: backgroundColor + 'E6',
+                    width: 32,
+                    height: 32,
+                    borderRadius: 16,
+                    backgroundColor: tintColor,
+                    justifyContent: 'center',
+                    alignItems: 'center',
                   }}
                 >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-                      <View
-                        style={{
-                          width: 44,
-                          height: 44,
-                          borderRadius: 22,
-                          backgroundColor: tintColor + '20',
-                          justifyContent: 'center',
-                          alignItems: 'center',
-                        }}
-                      >
-                        <Ionicons name="chatbubble-ellipses-outline" size={22} color={tintColor} />
-                      </View>
-                      <View>
-                        <Text style={{ color: textColor, fontWeight: '600', fontSize: 17 }}>Feedback</Text>
-                        <Text style={{ color: textColor, opacity: 0.6, fontSize: 14, marginTop: 2 }}>
-                          Share ideas & report bugs
-                        </Text>
-                      </View>
-                    </View>
-                    <Ionicons name="chevron-forward" size={20} color={textColor} style={{ opacity: 0.4 }} />
-                  </View>
+                  <Ionicons name="chatbubble-ellipses-outline" size={18} color={circleIconColor} />
                 </View>
-              )}
-            </TouchableOpacity>
+              }
+              showSeparator
+            />
+            <SettingsRow
+              title="Sign Out"
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                signOut();
+              }}
+              showChevron={false}
+              showSeparator={false}
+              leftIcon={null}
+            />
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -586,67 +472,6 @@ export default function ProfileScreen() {
               </View>
             </TouchableOpacity>
           )}
-
-          {/* Feedback Button (available even when logged out) */}
-          <TouchableOpacity
-            onPress={() => {
-              void handleOpenUserJotFeedback();
-            }}
-            activeOpacity={0.7}
-          >
-            {canShowGlass ? (
-              <GlassView
-                style={{
-                  borderRadius: 16,
-                  paddingVertical: 18,
-                  paddingHorizontal: 24,
-                  overflow: 'hidden',
-                  width: '100%',
-                }}
-                glassEffectStyle="regular"
-                tintColor={tintColor}
-                isInteractive
-              >
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 12,
-                  }}
-                >
-                  <Ionicons name="chatbubble-ellipses-outline" size={22} color={Colors[colorScheme].background} />
-                  <Text
-                    style={{
-                      color: Colors[colorScheme].background,
-                      fontWeight: '700',
-                      fontSize: 17,
-                    }}
-                  >
-                    Give Feedback
-                  </Text>
-                </View>
-              </GlassView>
-            ) : (
-              <View
-                style={{
-                  borderRadius: 16,
-                  paddingVertical: 18,
-                  paddingHorizontal: 24,
-                  overflow: 'hidden',
-                  width: '100%',
-                  backgroundColor: tintColor + 'E6',
-                }}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-                  <Ionicons name="chatbubble-ellipses-outline" size={22} color={Colors[colorScheme].background} />
-                  <Text style={{ color: Colors[colorScheme].background, fontWeight: '700', fontSize: 17 }}>
-                    Give Feedback
-                  </Text>
-                </View>
-              </View>
-            )}
-          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
