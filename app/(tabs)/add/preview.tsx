@@ -299,7 +299,6 @@ export default function PreviewScreen() {
           setSelectedLatitude(undefined);
           setSelectedLongitude(undefined);
         }
-        setErrors((prev) => ({ ...prev, address: undefined }));
         setPendingLocationSelection(null);
       }
     }, [pendingLocationSelection, setPendingLocationSelection])
@@ -356,7 +355,7 @@ export default function PreviewScreen() {
   };
 
   // Validate all fields
-  const validateForm = (): boolean => {
+  const validateForm = useCallback((): boolean => {
     const newErrors: ValidationErrors = {};
 
     const titleError = validateTitle(title);
@@ -390,7 +389,24 @@ export default function PreviewScreen() {
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
+  }, [
+    title,
+    daySettings,
+    selectedLatitude,
+    selectedLongitude,
+    cost,
+    websiteUrl,
+    description,
+    organizationName,
+    instagram,
+    facebook,
+  ]);
+
+  // Keep `errors` in sync with the current form state so submission
+  // disabling is explainable via inline messages/borders.
+  useEffect(() => {
+    validateForm();
+  }, [validateForm]);
 
   const handleSave = async () => {
     // Validate form before submission
@@ -658,6 +674,8 @@ export default function PreviewScreen() {
                 borderRadius: 20,
                 padding: 20,
                 overflow: 'hidden',
+                borderWidth: errors.title ? 1 : 0,
+                borderColor: errorColor,
               }}
               glassEffectStyle="regular"
             >
@@ -675,10 +693,6 @@ export default function PreviewScreen() {
                   defaultValue={title}
                   onChangeText={(text) => {
                     setTitle(text);
-                    // Clear error when user starts typing
-                    if (errors.title) {
-                      setErrors(prev => ({ ...prev, title: undefined }));
-                    }
                   }}
                   placeholder="Enter event title"
                 />
@@ -730,6 +744,8 @@ export default function PreviewScreen() {
                       borderRadius: 20,
                       padding: 16,
                       overflow: 'hidden',
+                      borderWidth: errors.date || errors.time ? 1 : 0,
+                      borderColor: errorColor,
                     }}
                     glassEffectStyle="regular"
                   >
@@ -777,9 +793,6 @@ export default function PreviewScreen() {
                               selection={day.date}
                               onDateChange={(newDate: Date) => {
                                 updateDay(index, { date: newDate });
-                                if (errors.date) {
-                                  setErrors(prev => ({ ...prev, date: undefined }));
-                                }
                               }}
                             />
                           </Host>
@@ -805,9 +818,6 @@ export default function PreviewScreen() {
                                   startTime: checked ? null : (day.startTime || new Date()),
                                   endTime: checked ? null : day.endTime,
                                 });
-                                if (errors.time) {
-                                  setErrors(prev => ({ ...prev, time: undefined }));
-                                }
                               }}
                               label="All Day"
                             />
@@ -832,9 +842,6 @@ export default function PreviewScreen() {
                                 selection={day.startTime || new Date()}
                                 onDateChange={(date: Date) => {
                                   updateDay(index, { startTime: date });
-                                  if (errors.time) {
-                                    setErrors(prev => ({ ...prev, time: undefined }));
-                                  }
                                 }}
                               />
                             </Host>
@@ -859,9 +866,6 @@ export default function PreviewScreen() {
                                 selection={day.endTime || new Date()}
                                 onDateChange={(date: Date) => {
                                   updateDay(index, { endTime: date });
-                                  if (errors.time) {
-                                    setErrors(prev => ({ ...prev, time: undefined }));
-                                  }
                                 }}
                               />
                             </Host>
@@ -899,6 +903,8 @@ export default function PreviewScreen() {
                 borderRadius: 20,
                 padding: 20,
                 overflow: 'hidden',
+                borderWidth: errors.address ? 1 : 0,
+                borderColor: errorColor,
               }}
               glassEffectStyle="regular"
             >
@@ -958,6 +964,8 @@ export default function PreviewScreen() {
                 borderRadius: 20,
                 padding: 20,
                 overflow: 'hidden',
+                borderWidth: errors.cost ? 1 : 0,
+                borderColor: errorColor,
               }}
               glassEffectStyle="regular"
             >
@@ -995,9 +1003,6 @@ export default function PreviewScreen() {
                       setIsFree(!checked);
                       if (!checked) {
                         setCost('Free');
-                        if (errors.cost) {
-                          setErrors(prev => ({ ...prev, cost: undefined }));
-                        }
                       } else {
                         setCost('');
                       }
@@ -1020,9 +1025,6 @@ export default function PreviewScreen() {
                         ? parts[0] + '.' + parts.slice(1).join('')
                         : numericValue;
                       setCost(filtered);
-                      if (errors.cost) {
-                        setErrors(prev => ({ ...prev, cost: undefined }));
-                      }
                     }}
                     placeholder="0.00"
                     placeholderTextColor={placeholderColor}
@@ -1074,6 +1076,8 @@ export default function PreviewScreen() {
                 borderRadius: 20,
                 padding: 20,
                 overflow: 'hidden',
+                borderWidth: errors.websiteUrl ? 1 : 0,
+                borderColor: errorColor,
               }}
               glassEffectStyle="regular"
             >
@@ -1091,9 +1095,6 @@ export default function PreviewScreen() {
                   defaultValue={websiteUrl}
                   onChangeText={(text) => {
                     setWebsiteUrl(text);
-                    if (errors.websiteUrl) {
-                      setErrors(prev => ({ ...prev, websiteUrl: undefined }));
-                    }
                   }}
                   placeholder="https://example.com"
                   autocorrection={false}
@@ -1116,6 +1117,8 @@ export default function PreviewScreen() {
                 borderRadius: 20,
                 padding: 20,
                 overflow: 'hidden',
+                borderWidth: errors.organizationName ? 1 : 0,
+                borderColor: errorColor,
               }}
               glassEffectStyle="regular"
             >
@@ -1133,9 +1136,6 @@ export default function PreviewScreen() {
                   defaultValue={organizationName}
                   onChangeText={(text) => {
                     setOrganizationName(text);
-                    if (errors.organizationName) {
-                      setErrors(prev => ({ ...prev, organizationName: undefined }));
-                    }
                   }}
                   placeholder="Organization or host name"
                 />
@@ -1157,6 +1157,8 @@ export default function PreviewScreen() {
                 borderRadius: 20,
                 padding: 20,
                 overflow: 'hidden',
+                borderWidth: errors.description ? 1 : 0,
+                borderColor: errorColor,
               }}
               glassEffectStyle="regular"
             >
@@ -1174,9 +1176,6 @@ export default function PreviewScreen() {
                   defaultValue={description}
                   onChangeText={(text) => {
                     setDescription(text);
-                    if (errors.description) {
-                      setErrors(prev => ({ ...prev, description: undefined }));
-                    }
                   }}
                   placeholder="Enter event description"
                   multiline
@@ -1215,15 +1214,21 @@ export default function PreviewScreen() {
                 {/* Instagram */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                   <Ionicons name="logo-instagram" size={22} color="#E4405F" />
-                  <View style={{ flex: 1 }}>
+                  <View
+                    style={{
+                      flex: 1,
+                      borderWidth: errors.instagram ? 1 : 0,
+                      borderColor: errorColor,
+                      borderRadius: 12,
+                      paddingVertical: 6,
+                      paddingHorizontal: 8,
+                    }}
+                  >
                     <Host matchContents>
                       <TextField
                       defaultValue={instagram}
                       onChangeText={(text) => {
                         setInstagram(text);
-                        if (errors.instagram) {
-                          setErrors(prev => ({ ...prev, instagram: undefined }));
-                        }
                       }}
                       placeholder="@username"
                       autocorrection={false}
@@ -1244,15 +1249,21 @@ export default function PreviewScreen() {
                 {/* Facebook */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                   <Ionicons name="logo-facebook" size={22} color="#1877F2" />
-                  <View style={{ flex: 1 }}>
+                  <View
+                    style={{
+                      flex: 1,
+                      borderWidth: errors.facebook ? 1 : 0,
+                      borderColor: errorColor,
+                      borderRadius: 12,
+                      paddingVertical: 6,
+                      paddingHorizontal: 8,
+                    }}
+                  >
                     <Host matchContents>
                       <TextField
                       defaultValue={facebook}
                       onChangeText={(text) => {
                         setFacebook(text);
-                        if (errors.facebook) {
-                          setErrors(prev => ({ ...prev, facebook: undefined }));
-                        }
                       }}
                       placeholder="username"
                       autocorrection={false}
