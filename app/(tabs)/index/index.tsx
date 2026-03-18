@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { FlatList, Platform, RefreshControl, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors } from '../../../constants/theme';
+import { Colors, Palette } from '../../../constants/theme';
 import { DistanceFilter, Event, useEvents } from '../../../contexts/EventContext';
 import { useTheme } from '../../../contexts/ThemeContext';
 
@@ -167,14 +167,49 @@ export default function HomeScreen() {
         </View>
       );
     }
-    // Solid poster fills (slightly different pastels) + white borders
-    const posterBgColors = colorScheme === 'dark'
-      ? ['#7A4A5A', '#7A6A2A', '#3B5E8A'] // pastel red / yellow / blue (dark)
-      : ['#FFD1D1', '#FFF2B3', '#D1E6FF']; // pastel red / yellow / blue (light)
-    // Darker shades aligned with each poster's pastel background
-    const skeletonLineBgColors = colorScheme === 'dark'
-      ? ['#5A2E3F', '#5D5322', '#2D4A7A']
-      : ['#E39A9A', '#E8D36B', '#AFCBEF'];
+    // Poster mockups use theme palette colors, blended into pastels without transparency.
+    const hexToRgb = (hex: string) => {
+      const cleaned = hex.replace('#', '');
+      const normalized = cleaned.length === 3 ? cleaned.split('').map((c) => c + c).join('') : cleaned;
+      const intVal = Number.parseInt(normalized, 16);
+      const r = (intVal >> 16) & 255;
+      const g = (intVal >> 8) & 255;
+      const b = intVal & 255;
+      return { r, g, b };
+    };
+
+    const rgbToHex = (r: number, g: number, b: number) => {
+      const toHex = (v: number) => v.toString(16).padStart(2, '0');
+      return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+    };
+
+    // ratioFrom: 0..1, where 0 = background, 1 = source color.
+    const blendHex = (from: string, to: string, ratioFrom: number) => {
+      const a = hexToRgb(from);
+      const b = hexToRgb(to);
+      const t = Math.max(0, Math.min(1, ratioFrom));
+      const r = Math.round(a.r * t + b.r * (1 - t));
+      const g = Math.round(a.g * t + b.g * (1 - t));
+      const bb = Math.round(a.b * t + b.b * (1 - t));
+      return rgbToHex(r, g, bb);
+    };
+
+    const background = Colors[colorScheme].background;
+    const text = Colors[colorScheme].text;
+    const posterBaseColors = [Palette.coral, Palette.goldenPollen, Palette.steelBlue];
+
+    // Pastel poster fills
+    const pastelRatio = colorScheme === 'dark' ? 0.28 : 0.18;
+    const posterBgColors = posterBaseColors.map((c) => blendHex(c, background, pastelRatio));
+
+    // Darker skeleton bars (solid fills) derived from the poster pastels.
+    const skeletonLineBgColors = posterBgColors.map((bg) => {
+      if (colorScheme === 'dark') {
+        return blendHex(bg, background, 0.55);
+      }
+      // In light mode, move skeletons toward the text color (darker).
+      return blendHex(bg, text, 0.40);
+    });
 
     return (
       <View
@@ -214,7 +249,7 @@ export default function HomeScreen() {
                     borderRadius: 16,
                     backgroundColor: posterBgColors[i] ?? posterBgColors[0],
                     borderWidth: 2,
-                    borderColor: colorScheme === 'dark' ? '#121212' : '#FFFFFF',
+                    borderColor: Colors[colorScheme].background,
                     transform: [
                       { translateX: fanTranslateX },
                       { translateY: fanTranslateY },
