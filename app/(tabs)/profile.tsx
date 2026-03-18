@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { GlassView } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
+import * as WebBrowser from 'expo-web-browser';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
@@ -22,6 +23,17 @@ export default function ProfileScreen() {
   const textColor = Colors[colorScheme].text;
   const tintColor = Colors[colorScheme].tint;
   const yellowColor = Colors[colorScheme].yellow;
+  const userJotUrl = 'https://corkboard.userjot.com/';
+
+  const handleOpenUserJotFeedback = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      await WebBrowser.openBrowserAsync(userJotUrl);
+    } catch (error) {
+      console.error('Error opening UserJot:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+  };
 
   // Defer GlassView mount until tab is focused + one frame (fixes first-visit no-render with native tabs)
   const [canShowGlass, setCanShowGlass] = useState(false);
@@ -285,6 +297,96 @@ export default function ProfileScreen() {
                 </View>
               )}
             </TouchableOpacity>
+
+            {/* Feedback Button */}
+            <TouchableOpacity
+              onPress={() => {
+                void handleOpenUserJotFeedback();
+              }}
+              activeOpacity={0.7}
+            >
+              {canShowGlass ? (
+                <GlassView
+                  style={{
+                    borderRadius: 20,
+                    paddingVertical: 18,
+                    paddingHorizontal: 20,
+                    overflow: 'hidden',
+                  }}
+                  glassEffectStyle="regular"
+                  isInteractive
+                >
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                      <View
+                        style={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: 22,
+                          backgroundColor: tintColor + '20',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Ionicons name="chatbubble-ellipses-outline" size={22} color={tintColor} />
+                      </View>
+                      <View>
+                        <Text style={{ color: textColor, fontWeight: '600', fontSize: 17 }}>Feedback</Text>
+                        <Text style={{ color: textColor, opacity: 0.6, fontSize: 14, marginTop: 2 }}>
+                          Share ideas & report bugs
+                        </Text>
+                      </View>
+                    </View>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={20}
+                      color={textColor}
+                      style={{ opacity: 0.4 }}
+                    />
+                  </View>
+                </GlassView>
+              ) : (
+                <View
+                  style={{
+                    borderRadius: 20,
+                    paddingVertical: 18,
+                    paddingHorizontal: 20,
+                    overflow: 'hidden',
+                    backgroundColor: backgroundColor + 'E6',
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                      <View
+                        style={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: 22,
+                          backgroundColor: tintColor + '20',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Ionicons name="chatbubble-ellipses-outline" size={22} color={tintColor} />
+                      </View>
+                      <View>
+                        <Text style={{ color: textColor, fontWeight: '600', fontSize: 17 }}>Feedback</Text>
+                        <Text style={{ color: textColor, opacity: 0.6, fontSize: 14, marginTop: 2 }}>
+                          Share ideas & report bugs
+                        </Text>
+                      </View>
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color={textColor} style={{ opacity: 0.4 }} />
+                  </View>
+                </View>
+              )}
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -484,6 +586,67 @@ export default function ProfileScreen() {
               </View>
             </TouchableOpacity>
           )}
+
+          {/* Feedback Button (available even when logged out) */}
+          <TouchableOpacity
+            onPress={() => {
+              void handleOpenUserJotFeedback();
+            }}
+            activeOpacity={0.7}
+          >
+            {canShowGlass ? (
+              <GlassView
+                style={{
+                  borderRadius: 16,
+                  paddingVertical: 18,
+                  paddingHorizontal: 24,
+                  overflow: 'hidden',
+                  width: '100%',
+                }}
+                glassEffectStyle="regular"
+                tintColor={tintColor}
+                isInteractive
+              >
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 12,
+                  }}
+                >
+                  <Ionicons name="chatbubble-ellipses-outline" size={22} color={Colors[colorScheme].background} />
+                  <Text
+                    style={{
+                      color: Colors[colorScheme].background,
+                      fontWeight: '700',
+                      fontSize: 17,
+                    }}
+                  >
+                    Give Feedback
+                  </Text>
+                </View>
+              </GlassView>
+            ) : (
+              <View
+                style={{
+                  borderRadius: 16,
+                  paddingVertical: 18,
+                  paddingHorizontal: 24,
+                  overflow: 'hidden',
+                  width: '100%',
+                  backgroundColor: tintColor + 'E6',
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+                  <Ionicons name="chatbubble-ellipses-outline" size={22} color={Colors[colorScheme].background} />
+                  <Text style={{ color: Colors[colorScheme].background, fontWeight: '700', fontSize: 17 }}>
+                    Give Feedback
+                  </Text>
+                </View>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
