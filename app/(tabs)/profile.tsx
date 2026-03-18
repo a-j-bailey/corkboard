@@ -7,7 +7,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import type { ReactNode } from 'react';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from '../../components/themed-text';
 import { Colors } from '../../constants/theme';
@@ -82,11 +82,6 @@ export default function ProfileScreen() {
     const chevronColor = Colors[colorScheme].text;
     const circleIconColor = '#FFFFFF';
 
-    const openComingSoon = () => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      Alert.alert('Settings', 'Coming soon.');
-    };
-
     const SettingsRow = ({
       title,
       subtitle,
@@ -144,12 +139,6 @@ export default function ProfileScreen() {
 
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: screenBackgroundColor }}>
-        {/* Top bar */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, marginBottom: 6 }}>
-          <View style={{ width: 40, height: 40 }} />
-          <Text style={{ color: textColor, fontSize: 20, fontWeight: '700' }}>Settings</Text>
-          <View style={{ width: 40 }} />
-        </View>
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{
