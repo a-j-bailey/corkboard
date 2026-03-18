@@ -28,7 +28,9 @@ const POSTER_ASPECT_RATIO = 2 / 3; // width / height
 
 /**
  * Map overlay frame rect (layout points from measureInWindow) to snapshot image pixels.
- * Snapshot is a screenshot of the preview, so we scale from window size to snapshot size.
+ * The camera preview can apply internal "cover" scaling/cropping when aspect ratios differ
+ * between the sensor snapshot and the on-screen preview. We approximate that behavior by
+ * mapping using a shared scale plus centered offsets.
  */
 function frameRectToSnapshotCrop(
   frameRect: { x: number; y: number; width: number; height: number },
@@ -36,13 +38,23 @@ function frameRectToSnapshotCrop(
   snapshotHeight: number
 ): { originX: number; originY: number; width: number; height: number } {
   const { width: windowW, height: windowH } = Dimensions.get('window');
-  const scaleX = snapshotWidth / windowW;
-  const scaleY = snapshotHeight / windowH;
 
-  let originX = Math.round(frameRect.x * scaleX);
-  let originY = Math.round(frameRect.y * scaleY);
-  let width = Math.round(frameRect.width * scaleX);
-  let height = Math.round(frameRect.height * scaleY);
+  // "cover" scale factor that makes the sensor snapshot fully cover the preview.
+  // units: points-per-snapshot-pixel (because we divide view by snapshot dimensions).
+  const scale = Math.max(windowW / snapshotWidth, windowH / snapshotHeight);
+
+  const scaledSnapshotW = snapshotWidth * scale; // in points
+  const scaledSnapshotH = snapshotHeight * scale; // in points
+
+  // How much the scaled sensor extends beyond the preview, split equally on both sides.
+  const offsetX = (scaledSnapshotW - windowW) / 2; // in points
+  const offsetY = (scaledSnapshotH - windowH) / 2; // in points
+
+  // Map view coordinates into snapshot pixel coordinates.
+  let originX = Math.round((frameRect.x + offsetX) / scale);
+  let originY = Math.round((frameRect.y + offsetY) / scale);
+  let width = Math.round(frameRect.width / scale);
+  let height = Math.round(frameRect.height / scale);
 
   originX = Math.max(0, originX);
   originY = Math.max(0, originY);
@@ -50,6 +62,20 @@ function frameRectToSnapshotCrop(
   height = Math.min(height, snapshotHeight - originY);
   width = Math.max(1, width);
   height = Math.max(1, height);
+
+  if (__DEV__) {
+    console.log('[CameraScreen] Crop mapping debug', {
+      windowW,
+      windowH,
+      snapshotWidth,
+      snapshotHeight,
+      frameRect,
+      scale,
+      offsetX,
+      offsetY,
+      crop: { originX, originY, width, height },
+    });
+  }
 
   return { originX, originY, width, height };
 }
@@ -272,7 +298,7 @@ export default function CameraScreen() {
       });
 
       const snapshot = await cameraRef.current.takeSnapshot({
-        quality: 90,
+        quality: 75,
       });
       const rawUri = snapshot.path.startsWith('file://')
         ? snapshot.path
@@ -286,7 +312,10 @@ export default function CameraScreen() {
       const { uri } = await ImageManipulator.manipulateAsync(
         rawUri,
         [{ crop }],
-        {}
+        {
+          compress: 0.75,
+          format: ImageManipulator.SaveFormat.JPEG,
+        }
       );
 
       if (isMountedRef.current) {

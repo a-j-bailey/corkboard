@@ -3,14 +3,16 @@ import { generateObject } from 'ai';
 import { File } from 'expo-file-system';
 import { z } from 'zod';
 import { Event, EventDate } from '../contexts/EventContext';
-import { parseDates, parsePriceToNumber } from './eventParser';
+import { parseDates, parseEventDetails, parsePriceToNumber } from './eventParser';
+import { extractTextFromImage } from './textExtraction';
 
 // Zod schema for event extraction
 const eventSchema = z.object({
-  events: z.array(
-    z.object({
-      title: z.string().describe('Event title'),
-      date: z.string().describe('Event date in YYYY-MM-DD format or as written on poster'),
+  // Extract only the primary/most prominent event to keep the response small and fast.
+  event: z
+    .object({
+      title: z.string().optional().describe('Event title'),
+      date: z.string().optional().describe('Event date in YYYY-MM-DD format or as written on poster'),
       time: z.string().optional().describe('Event time if available'),
       address: z.string().optional().describe('Event address or location'),
       cost: z.string().optional().describe('Event cost or price'),
@@ -26,10 +28,10 @@ const eventSchema = z.object({
       description: z.string().optional().describe('Event description'),
       organizationName: z.string().optional().describe('Organization or host name'),
     })
-  ),
+    .optional(),
 });
 
-type ExtractedEvents = z.infer<typeof eventSchema>;
+type ExtractedEventData = z.infer<typeof eventSchema>;
 
 /**
  * Converts image URI to base64 string
@@ -58,19 +60,56 @@ export async function extractEventFromImage(
 ): Promise<Partial<Event>> {
   console.log('[VisionExtraction] Starting event extraction from image');
 
-  // Check if API key is available
-  if (!apiKey || apiKey.trim().length === 0) {
-    throw new Error(
-      'xAI API key is required for vision-based extraction. Please set the xAI API key in your environment.'
-    );
-  }
-
   try {
+    // 1) OCR-first attempt (fast, local) before calling any vision model.
+    try {
+      const ocrStartMs = Date.now();
+      console.log('[VisionExtraction] Attempting OCR-first extraction...');
+
+      const extractedText = await extractTextFromImage(imageUri);
+      const ocrTextMs = Date.now() - ocrStartMs;
+      console.log(
+        '[VisionExtraction] OCR text extracted in ms:',
+        ocrTextMs,
+        'length:',
+        extractedText.length
+      );
+
+      const parsedFromText = await parseEventDetails(extractedText);
+      const hasTitle = !!parsedFromText.title && parsedFromText.title.trim().length > 0;
+      const hasDates = Array.isArray(parsedFromText.dates) && parsedFromText.dates.length > 0;
+      console.log('[VisionExtraction] OCR parsed fields - title:', hasTitle, 'dates:', hasDates);
+
+      // If we have the critical fields, skip the slow vision model entirely.
+      if (hasTitle && hasDates) {
+        console.log('[VisionExtraction] OCR-first succeeded; skipping vision model.');
+        return parsedFromText;
+      }
+    } catch (ocrError) {
+      console.warn(
+        '[VisionExtraction] OCR-first extraction failed; falling back to vision model:',
+        ocrError instanceof Error ? ocrError.message : ocrError
+      );
+    }
+
+    // Check if API key is available only when we need the vision model.
+    if (!apiKey || apiKey.trim().length === 0) {
+      throw new Error(
+        'xAI API key is required for vision-based extraction. Please set the xAI API key in your environment.'
+      );
+    }
+
     // Convert image to base64
     let base64Image: string;
+    const base64StartMs = Date.now();
     try {
       base64Image = await convertImageToBase64(imageUri);
-      console.log('[VisionExtraction] Image converted to base64, size:', Math.round(base64Image.length / 1024), 'KB');
+      console.log(
+        '[VisionExtraction] Image converted to base64, size:',
+        Math.round(base64Image.length / 1024),
+        'KB in ms:',
+        Date.now() - base64StartMs
+      );
     } catch (convertError) {
       console.error('[VisionExtraction] Failed to convert image to base64:', convertError instanceof Error ? convertError.message : convertError);
       throw new Error(`Failed to convert image to base64: ${convertError instanceof Error ? convertError.message : 'Unknown error'}`);
@@ -84,7 +123,7 @@ export async function extractEventFromImage(
         apiKey,
         baseURL: process.env.EXPO_PUBLIC_XAI_BASE_URL || 'https://api.x.ai/v1',
       });
-      model = openaiClient('grok-4-1-fast-reasoning');
+      model = openaiClient('grok-4-1-fast-non-reasoning');
       console.log('[VisionExtraction] Calling xAI API...');
     } catch (clientError) {
       console.error(
@@ -100,26 +139,33 @@ export async function extractEventFromImage(
 
     // Use vision model to extract event details directly from image
     let result;
+    const visionStartMs = Date.now();
     try {
       result = await generateObject({
         model,
+        // providerOptions: {
+        //   openai: {
+        //     // Using low detail reduces visual processing cost/latency.
+        //     // imageDetail: 'low',
+        //   },
+        // },
+        maxRetries: 1,
+        maxOutputTokens: 300,
         messages: [
           {
             role: 'user',
             content: [
               {
                 type: 'text',
-                text: `Extract all event information from this poster/flyer image. Look for:
-- Event title (usually the largest/most prominent text)
-- Date and time (if multiple, return an array of date/times)
-- Location/address
-- Price/cost
-- Website URL
-- Social media handles (Twitter, Instagram, Facebook)
-- Description
-- Organization/host name
-
-If there are multiple events on the poster, extract all of them. Return the information as structured data.`,
+                text: `Extract the primary/most prominent event from this poster/flyer image.
+Return structured JSON with:
+- title
+- date
+- time (if available)
+- address/location (if available)
+- cost/price (if available)
+- websiteUrl and social handles (if available)
+- description and organizationName (if available)`,
               },
               {
                 type: 'image',
@@ -130,7 +176,7 @@ If there are multiple events on the poster, extract all of them. Return the info
         ],
         schema: eventSchema,
       });
-      console.log('[VisionExtraction] API call completed');
+      console.log('[VisionExtraction] Vision API call completed in ms:', Date.now() - visionStartMs);
     } catch (apiError) {
       const errorAny = apiError as any;
 
@@ -168,13 +214,12 @@ If there are multiple events on the poster, extract all of them. Return the info
       throw new Error(errorMessage);
     }
 
-    const extractedData = result.object as unknown as ExtractedEvents;
+    const extractedData = result.object as unknown as ExtractedEventData;
     console.log('[VisionExtraction] Extracted data:', extractedData);
-    console.log('[VisionExtraction] Processing response, events found:', extractedData.events?.length || 0);
 
-    if (extractedData.events && extractedData.events.length > 0) {
-      // Use the first event (or we could show a picker if multiple)
-      const firstEvent = extractedData.events[0];
+    if (extractedData.event) {
+      // We intentionally only ask for the primary event.
+      const firstEvent = extractedData.event;
 
       // Convert social media handles to the format expected by Event type
       const socialMediaHandles = firstEvent.socialMediaHandles
@@ -231,8 +276,8 @@ If there are multiple events on the poster, extract all of them. Return the info
       return parsedEvent;
     }
 
-    console.warn('[VisionExtraction] No events found in API response');
-    throw new Error('No events found in the image');
+    console.warn('[VisionExtraction] No event found in API response');
+    throw new Error('No primary event found in the image');
   } catch (error) {
     if (error instanceof Error && !error.message.startsWith('Vision extraction failed:')) {
       console.error('[VisionExtraction] Error:', error.message);
