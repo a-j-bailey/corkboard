@@ -1138,6 +1138,7 @@ export default function PreviewScreen() {
                     setOrganizationName(text);
                   }}
                   placeholder="Organization or host name"
+                  multiline
                 />
               </Host>
               {errors.organizationName && (
