@@ -1,14 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useIsFocused } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Dimensions,
+  Easing,
   StyleSheet,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -53,21 +56,96 @@ function frameRectToSnapshotCrop(
 
 export default function CameraScreen() {
   const router = useRouter();
+  const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
   const { colorScheme } = useTheme();
   const cameraRef = useRef<Camera>(null);
   const frameRef = useRef<View>(null);
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [capturedPosterUri, setCapturedPosterUri] = useState<string | null>(null);
+  const shouldHideCamera = Boolean(capturedPosterUri && isExtracting);
+
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  const flashOpacity = useRef(new Animated.Value(0)).current;
+  const posterOpacity = useRef(new Animated.Value(0)).current;
+  const shimmerAnim = useRef(new Animated.Value(0)).current;
+  const shimmerLoopRef = useRef<Animated.CompositeAnimation | null>(null);
+
+  const { width: windowWidth } = Dimensions.get('window');
+  const shimmerTranslateX = shimmerAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-windowWidth, windowWidth],
+  });
+
+  useEffect(() => {
+    // Start the shimmer only once the captured overlay is visible.
+    if (isExtracting && capturedPosterUri) {
+      shimmerLoopRef.current?.stop();
+      shimmerAnim.setValue(0);
+
+      shimmerLoopRef.current = Animated.loop(
+        Animated.timing(shimmerAnim, {
+          toValue: 1,
+          duration: 1400,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        })
+      );
+      shimmerLoopRef.current.start();
+    } else {
+      shimmerLoopRef.current?.stop();
+      shimmerLoopRef.current = null;
+    }
+
+    return () => {
+      // Avoid stray animation when state changes quickly.
+      shimmerLoopRef.current?.stop();
+      shimmerLoopRef.current = null;
+    };
+  }, [capturedPosterUri, isExtracting, shimmerAnim]);
 
   const { hasPermission, requestPermission } = useCameraPermission();
   const device = useCameraDevice('back');
+
+  useEffect(() => {
+    if (isFocused) return;
+
+    // If this screen stays mounted while navigating (e.g., stack/tab transitions),
+    // reset processing UI so it doesn't "stick" when you come back.
+    if (isMountedRef.current) {
+      setIsExtracting(false);
+      setIsCapturing(false);
+      setCapturedPosterUri(null);
+      posterOpacity.setValue(0);
+      flashOpacity.setValue(0);
+    }
+    shimmerLoopRef.current?.stop();
+    shimmerLoopRef.current = null;
+  }, [isFocused, flashOpacity, posterOpacity]);
 
   const handleCapture = async () => {
     if (!cameraRef.current || !isCameraReady || isCapturing) return;
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setIsCapturing(true);
+    setIsExtracting(true);
+
+    // Immediate shutter flash.
+    flashOpacity.setValue(1);
+    Animated.timing(flashOpacity, {
+      toValue: 0,
+      duration: 120,
+      easing: Easing.linear,
+      useNativeDriver: true,
+    }).start();
 
     try {
       const frameRect = await new Promise<{
@@ -99,11 +177,45 @@ export default function CameraScreen() {
         {}
       );
 
+      if (isMountedRef.current) {
+        setCapturedPosterUri(uri);
+        posterOpacity.setValue(0);
+        Animated.timing(posterOpacity, {
+          toValue: 1,
+          duration: 220,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }).start();
+      }
+
       await processPosterImage(uri, router, {
-        onComplete: () => setIsCapturing(false),
+        onComplete: () => {
+          if (!isMountedRef.current) return;
+
+          Animated.timing(posterOpacity, {
+            toValue: 0,
+            duration: 160,
+            easing: Easing.linear,
+            useNativeDriver: true,
+          }).start(() => {
+            if (!isMountedRef.current) return;
+            setCapturedPosterUri(null);
+          });
+
+          setIsExtracting(false);
+          setIsCapturing(false);
+        },
       });
     } catch (error) {
       console.error('[CameraScreen] Capture error:', error);
+
+      if (isMountedRef.current) {
+        setIsExtracting(false);
+        setCapturedPosterUri(null);
+        posterOpacity.setValue(0);
+        shimmerLoopRef.current?.stop();
+        shimmerLoopRef.current = null;
+      }
       setIsCapturing(false);
     }
   };
@@ -148,14 +260,22 @@ export default function CameraScreen() {
 
   return (
     <View style={styles.container}>
-      <Camera
-        ref={cameraRef}
-        style={StyleSheet.absoluteFill}
-        device={device}
-        isActive={true}
-        photo={true}
-        video={true}
-        onInitialized={() => setIsCameraReady(true)}
+      {!shouldHideCamera ? (
+        <Camera
+          ref={cameraRef}
+          style={StyleSheet.absoluteFill}
+          device={device}
+          isActive={true}
+          photo={true}
+          video={true}
+          onInitialized={() => setIsCameraReady(true)}
+        />
+      ) : <View style={StyleSheet.absoluteFill} ></View>}
+
+      {/* Full-screen shutter flash */}
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.flashOverlay, { opacity: flashOpacity }]}
       />
 
       {/* Back button */}
@@ -173,26 +293,66 @@ export default function CameraScreen() {
           ref={frameRef}
           style={[styles.posterFrame, { aspectRatio: POSTER_ASPECT_RATIO }]}
           collapsable={false}
-        />
+        >
+          {capturedPosterUri && isExtracting ? (
+            <>
+              <Animated.Image
+                source={{ uri: capturedPosterUri }}
+                style={[StyleSheet.absoluteFillObject, { opacity: posterOpacity }]}
+                resizeMode="cover"
+              />
+
+              {/* Shimmer / animated gradient-like sweep */}
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  styles.shimmerStripe,
+                  {
+                    transform: [{ translateX: shimmerTranslateX }],
+                    opacity: posterOpacity,
+                  },
+                ]}
+              />
+
+              {/* Subtle border glow to sell the effect as "around the frame" */}
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  styles.shimmerBorderGlow,
+                  {
+                    opacity: posterOpacity,
+                  },
+                ]}
+              />
+            </>
+          ) : null}
+        </View>
       </View>
 
       {/* Bottom area: shutter button */}
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 24 }]}>
-        <TouchableOpacity
-          onPress={handleCapture}
-          disabled={!isCameraReady || isCapturing}
-          activeOpacity={0.8}
-          style={[
-            styles.shutterButton,
-            (!isCameraReady || isCapturing) && styles.shutterButtonDisabled,
-          ]}
-        >
-          {isCapturing ? (
+        {isExtracting ? (
+          <View style={styles.shutterMessageInner}>
             <ActivityIndicator size="small" color="#333" />
-          ) : (
+            <ThemedText style={styles.shutterMessageText}>
+              extracting event information
+            </ThemedText>
+          </View>
+        ) : isCapturing ? (
+          <ActivityIndicator size="small" color="#333" />
+        ) : (
+          <TouchableOpacity
+            onPress={handleCapture}
+            disabled={!isCameraReady || isCapturing}
+            activeOpacity={0.8}
+            style={[
+              styles.shutterButton,
+              (!isCameraReady || isCapturing) && styles.shutterButtonDisabled,
+            ]}
+          >
             <View style={styles.shutterInner} />
-          )}
-        </TouchableOpacity>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -257,6 +417,7 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: 'rgba(255,255,255,0.8)',
     borderRadius: 12,
+    overflow: 'hidden',
     backgroundColor: 'transparent',
   },
   bottomBar: {
@@ -287,5 +448,45 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderWidth: 2,
     borderColor: 'rgba(0,0,0,0.1)',
+  },
+  flashOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#fff',
+    zIndex: 50,
+  },
+  shimmerStripe: {
+    position: 'absolute',
+    top: -40,
+    bottom: -40,
+    left: '-20%',
+    width: '140%',
+    backgroundColor: 'rgba(255,255,255,0.55)',
+    transform: [{ rotate: '25deg' }],
+  },
+  shimmerBorderGlow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.85)',
+  },
+  shutterMessageInner: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 38,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  shutterMessageText: {
+    marginTop: 6,
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#111',
+    textAlign: 'center',
+    lineHeight: 12,
   },
 });
