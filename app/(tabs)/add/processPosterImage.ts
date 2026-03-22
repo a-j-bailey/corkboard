@@ -7,6 +7,12 @@ import { resolveExtractedLocationString } from '../../../services/resolveExtract
 import type { UserLocation } from '../../../services/locationService';
 import { extractEventFromImage } from '../../../services/visionExtraction';
 
+function hasExtractedEvent(eventData: Partial<Event>): boolean {
+  const title = eventData.title?.trim();
+  if (!title) return false;
+  return Array.isArray(eventData.dates) && eventData.dates.length > 0;
+}
+
 /**
  * Processes a poster image URI: extracts event data via vision, then navigates to preview.
  * Callers should set loading state before calling and pass onComplete to clear it.
@@ -67,6 +73,15 @@ export async function processPosterImage(
       }
     }
 
+    if (!hasExtractedEvent(eventData)) {
+      onComplete?.();
+      Alert.alert(
+        'No event found',
+        'We could not read a clear event title and date from this image. Try a well-lit photo of the full poster, or use a different image.'
+      );
+      return;
+    }
+
     router.push({
       pathname: '/add/preview',
       params: {
@@ -78,38 +93,25 @@ export async function processPosterImage(
   } catch (error) {
     console.error('[processPosterImage] Error processing image:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-    const errorForThrow = error instanceof Error ? error : new Error(errorMessage);
 
-    let userMessage = 'Failed to extract event information. ';
+    let alertTitle = 'Processing error';
+    let userMessage =
+      'We could not extract event information from this image. Try a clearer photo or check your connection.';
     if (errorMessage.includes('No text detected') || errorMessage.includes('No text content')) {
       userMessage =
-        'No text was detected in the image. Please ensure the image is clear and contains readable text. ';
+        'No text was detected in the image. Please ensure the image is clear and contains readable text.';
     } else if (errorMessage.includes('Text extraction failed')) {
+      userMessage = 'Text extraction failed. The image may be too blurry or low quality.';
+    } else if (
+      errorMessage.includes('No primary event') ||
+      errorMessage.includes('Vision extraction failed')
+    ) {
+      alertTitle = 'No event found';
       userMessage =
-        'Text extraction failed. The image may be too blurry or low quality. ';
+        'We could not identify an event on this poster. Try a clearer photo of the full poster.';
     }
-    userMessage += 'You can still manually enter the details in the preview screen.';
 
-    Alert.alert('Processing Error', userMessage, [
-      {
-        text: 'Try Again',
-        onPress: () => onComplete?.(),
-      },
-      {
-        text: 'Enter Manually',
-        onPress: () => {
-          router.push({
-            pathname: '/add/preview',
-            params: {
-              eventData: encodeURIComponent(JSON.stringify({})),
-              posterImageUri: imageUri,
-            },
-          });
-          onComplete?.();
-        },
-      },
-    ]);
     onComplete?.();
-    throw errorForThrow;
+    Alert.alert(alertTitle, userMessage, [{ text: 'OK' }]);
   }
 }
