@@ -9,14 +9,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Palette } from '../../../constants/theme';
 import { DistanceFilter, Event, useEvents } from '../../../contexts/EventContext';
 import { useTheme } from '../../../contexts/ThemeContext';
+import { useUser } from '../../../contexts/UserContext';
 
-const DISTANCE_OPTIONS: { value: DistanceFilter; label: string }[] = [
+const BASE_DISTANCE_OPTIONS: { value: DistanceFilter; label: string }[] = [
   { value: 1, label: '1 mile' },
   { value: 2, label: '2 miles' },
   { value: 5, label: '5 miles' },
   { value: 10, label: '10 miles' },
   { value: 25, label: '25 miles' },
-  ...(__DEV__ ? [{ value: null, label: 'All' }] : []),
 ];
 
 export default function HomeScreen() {
@@ -32,8 +32,16 @@ export default function HomeScreen() {
     setDistanceFilter,
     locationAvailable
   } = useEvents();
+  const { isSuperUser } = useUser();
   const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
+
+  const distanceOptions = useMemo(() => {
+    const showAll = __DEV__ || isSuperUser;
+    return showAll
+      ? [...BASE_DISTANCE_OPTIONS, { value: null as DistanceFilter, label: 'All' }]
+      : BASE_DISTANCE_OPTIONS;
+  }, [isSuperUser]);
 
   // Set refreshing when filter changes and events are loading
   useEffect(() => {
@@ -64,11 +72,14 @@ export default function HomeScreen() {
   const formatMiles = (m: number) => (m === 1 ? '1 mile' : `${m} miles`);
   const emptyTitle =
     distanceFilter === null ? 'No events yet' : `No events within ${formatMiles(distanceFilter)}`;
-  const emptySubtitle = !locationAvailable
-    ? 'Turn on location to see nearby events within your selected radius.'
-    : shouldSuggestWiden
-      ? `No events within ${formatMiles(distanceFilter)} yet. Widen the distance to catch more nearby events.`
-      : 'Nothing is showing up right now—try again soon, or add your own.';
+  const isGlobalDistance = distanceFilter === null;
+  const emptySubtitle = isGlobalDistance
+    ? 'Nothing is showing up right now—try again soon, or add your own.'
+    : !locationAvailable
+      ? 'Turn on location to see nearby events within your selected radius.'
+      : shouldSuggestWiden
+        ? `No events within ${formatMiles(distanceFilter)} yet. Widen the distance to catch more nearby events.`
+        : 'Nothing is showing up right now—try again soon, or add your own.';
 
   const handleDistanceSelect = (distance: DistanceFilter) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -382,11 +393,11 @@ export default function HomeScreen() {
             }}
           >
             <Text style={{ color: textColor, fontSize: 14, textAlign: 'center' }}>
-              Couldn't load latest. Tap to retry.
+              {"Couldn't load latest. Tap to retry."}
             </Text>
           </TouchableOpacity>
         )}
-        {!locationAvailable && (
+        {!locationAvailable && !isGlobalDistance && (
           <View
             style={{
               marginTop: 12,
@@ -424,7 +435,7 @@ export default function HomeScreen() {
       </Stack.Toolbar>
       <Stack.Toolbar placement="right">
         <Stack.Toolbar.Menu icon="mappin.and.ellipse">
-          {DISTANCE_OPTIONS.map((option) => (
+          {distanceOptions.map((option) => (
             <Stack.Toolbar.MenuAction
               key={option.value ?? 'all'}
               isOn={distanceFilter === option.value}

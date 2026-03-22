@@ -64,12 +64,12 @@ export function EventProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [bookmarkedEventIds, setBookmarkedEventIds] = useState<Set<string>>(new Set());
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
-  // In production, default to filtering by distance (25 mi); "All" only in __DEV__ when user selects it
+  // In production, default to 25 mi; "All" in __DEV__ or for superusers (app_metadata.superuser)
   const [distanceFilter, setDistanceFilter] = useState<DistanceFilter>(
     __DEV__ ? null : 25
   );
   const [locationAvailable, setLocationAvailable] = useState(false);
-  const { user } = useUser();
+  const { user, isSuperUser } = useUser();
 
   const refreshLocation = useCallback(async () => {
     try {
@@ -88,8 +88,9 @@ export function EventProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       setError(null);
 
-      // In production: require location; do not show events until location is granted.
-      if (!__DEV__ && !userLocation) {
+      // In production: require location unless superuser is viewing all distances (no proximity filter).
+      const allowWithoutLocation = __DEV__ || (isSuperUser && distanceFilter === null);
+      if (!allowWithoutLocation && !userLocation) {
         setEvents([]);
         setLoading(false);
         return;
@@ -118,7 +119,7 @@ export function EventProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [user?.id, userLocation, distanceFilter, user]);
+  }, [user, userLocation, distanceFilter, isSuperUser]);
 
   // Load location on mount and when user changes
   useEffect(() => {
@@ -128,7 +129,7 @@ export function EventProvider({ children }: { children: ReactNode }) {
   // Load events - triggered by user, distanceFilter, or userLocation changes
   useEffect(() => {
     refreshEvents();
-  }, [user?.id, distanceFilter, userLocation, refreshEvents]);
+  }, [distanceFilter, userLocation, refreshEvents]);
 
   const toggleBookmark = async (eventId: string) => {
     if (!user) {

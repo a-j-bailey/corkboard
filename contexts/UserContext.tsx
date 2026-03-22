@@ -1,7 +1,7 @@
 import { Session, User } from '@supabase/supabase-js';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import Constants from 'expo-constants';
-import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import React, { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 import { Alert, Platform } from 'react-native';
 import { identifyDevice } from 'vexo-analytics';
 import { supabase } from '../lib/supabase';
@@ -10,6 +10,8 @@ interface UserContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  /** Set via Supabase Auth app_metadata.superuser (admin-only); gates extra in-app abilities. */
+  isSuperUser: boolean;
   signInWithApple: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -50,6 +52,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const isSuperUser = useMemo(
+    () => user?.app_metadata?.superuser === true,
+    [user]
+  );
 
   const signInWithApple = async () => {
     try {
@@ -134,6 +141,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         user,
         session,
         loading,
+        isSuperUser,
         signInWithApple,
         signOut,
       }}
