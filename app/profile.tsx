@@ -9,10 +9,10 @@ import type { ReactNode } from 'react';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ThemedText } from '../../components/themed-text';
-import { Colors } from '../../constants/theme';
-import { useTheme } from '../../contexts/ThemeContext';
-import { useUser } from '../../contexts/UserContext';
+import { ThemedText } from '../components/themed-text';
+import { Colors } from '../constants/theme';
+import { useTheme } from '../contexts/ThemeContext';
+import { useUser } from '../contexts/UserContext';
 
 export default function ProfileScreen() {
   const { colorScheme } = useTheme();
@@ -35,7 +35,7 @@ export default function ProfileScreen() {
     }
   };
 
-  // Defer GlassView mount until tab is focused + one frame (fixes first-visit no-render with native tabs)
+  // Defer GlassView mount until screen is focused + one frame (fixes first-visit no-render with native tabs)
   const [canShowGlass, setCanShowGlass] = useState(false);
   useFocusEffect(
     useCallback(() => {

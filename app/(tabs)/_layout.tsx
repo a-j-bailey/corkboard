@@ -5,17 +5,9 @@ import { Tabs, useSegments } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { StatusBar } from 'expo-status-bar';
 import { useTheme } from '../../contexts/ThemeContext';
-import { useUser } from '../../contexts/UserContext';
-
-const TAB_ICONS = {
-  index: 'square.grid.2x2.fill',
-  profile: 'person.fill',
-  add: 'pin.fill',
-} as const;
 
 export default function TabsLayout() {
   const { colorScheme } = useTheme();
-  const { user } = useUser();
   const segments = useSegments();
   const lastSegment = segments[segments.length - 1];
   const hideTabs = lastSegment === 'add' || lastSegment === 'preview';
@@ -32,10 +24,6 @@ export default function TabsLayout() {
           <NativeTabs.Trigger name="add">
             <NativeTabs.Trigger.Icon sf="pin.fill" />
             <NativeTabs.Trigger.Label hidden>Add</NativeTabs.Trigger.Label>
-          </NativeTabs.Trigger>
-          <NativeTabs.Trigger name="profile">
-            <NativeTabs.Trigger.Icon sf="person.fill" />
-            <NativeTabs.Trigger.Label hidden>Profile</NativeTabs.Trigger.Label>
           </NativeTabs.Trigger>
         </NativeTabs>
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
@@ -66,19 +54,9 @@ export default function TabsLayout() {
           }}
         />
         <Tabs.Screen
-          name="profile"
-          options={{
-            title: 'Profile',
-            tabBarIcon: ({ color, size }) => (
-              <IconSymbol name="person.fill" color={color} size={size ?? 24} />
-            ),
-          }}
-        />
-        <Tabs.Screen
           name="add"
           options={{
             title: 'Add Event',
-            // href: user ? undefined : null,
             tabBarIcon: ({ color, size }) => (
               <IconSymbol name="pin.fill" color={color} size={size ?? 24} />
             ),

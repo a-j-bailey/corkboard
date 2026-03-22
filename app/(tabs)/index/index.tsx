@@ -94,6 +94,11 @@ export default function HomeScreen() {
     router.push(`/event/${event.id}`);
   };
 
+  const handleProfilePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push('/profile');
+  };
+
   const onRefresh = async () => {
     setRefreshing(true);
     try {
@@ -411,6 +416,12 @@ export default function HomeScreen() {
 
   return (
     <>
+      <Stack.Toolbar placement="left">
+        <Stack.Toolbar.Button onPress={handleProfilePress} accessibilityLabel="Profile">
+          <Stack.Toolbar.Icon sf="person.fill" />
+          <Stack.Toolbar.Label>Profile</Stack.Toolbar.Label>
+        </Stack.Toolbar.Button>
+      </Stack.Toolbar>
       <Stack.Toolbar placement="right">
         <Stack.Toolbar.Menu icon="mappin.and.ellipse">
           {DISTANCE_OPTIONS.map((option) => (

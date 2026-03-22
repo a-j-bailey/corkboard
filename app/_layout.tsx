@@ -40,6 +40,12 @@ function RootStack() {
           }}
         />
         <Stack.Screen
+          name="profile"
+          options={{
+            title: 'Profile',
+          }}
+        />
+        <Stack.Screen
           name="report/[eventId]"
           options={{
             presentation: 'modal',
