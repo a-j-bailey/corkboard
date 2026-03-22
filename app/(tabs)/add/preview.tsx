@@ -4,6 +4,7 @@ import { GlassView } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import type { LocationSuggestion, OpenStreetMapResult } from '@julekgwa/react-native-places-autocomplete';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -18,12 +19,14 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getIconForSuggestion } from '../../../components/LocationSearchWithIcons';
 import { Colors } from '../../../constants/theme';
 import { Event, EventDate, SocialMediaHandles, useEvents } from '../../../contexts/EventContext';
 import { useLocationSelection } from '../../../contexts/LocationSelectionContext';
 import { useTheme } from '../../../contexts/ThemeContext';
-import { parsePriceToNumber } from '../../../services/eventParser';
 import { geocodeLocation } from '../../../services/geocodingService';
+import { parsePriceToNumber } from '../../../services/eventParser';
+import { formatDisplayNameToListLines, formatSuggestionListLines } from '../../../utils/formatNominatimSuggestion';
 import { formatSaveError } from '../../../utils/formatSaveError';
 import { trackVexoEvent } from '../../../utils/trackVexoEvent';
 
@@ -277,6 +280,9 @@ export default function PreviewScreen() {
   const [title, setTitle] = useState(initialEventData.title || '');
   const [daySettings, setDaySettings] = useState<DaySettings[]>(initialDaySettings);
   const [address, setAddress] = useState(initialEventData.address || '');
+  const [selectedLocationSuggestion, setSelectedLocationSuggestion] = useState<
+    LocationSuggestion<OpenStreetMapResult> | null
+  >(null);
   const [selectedLatitude, setSelectedLatitude] = useState<number | undefined>(initialEventData.latitude);
   const [selectedLongitude, setSelectedLongitude] = useState<number | undefined>(initialEventData.longitude);
   const [cost, setCost] = useState(initialPrice);
@@ -312,6 +318,7 @@ export default function PreviewScreen() {
           setSelectedLatitude(undefined);
           setSelectedLongitude(undefined);
         }
+        setSelectedLocationSuggestion(pendingLocationSelection);
         setPendingLocationSelection(null);
       }
     }, [pendingLocationSelection, setPendingLocationSelection])
@@ -325,6 +332,7 @@ export default function PreviewScreen() {
     setTitle(initialEventData.title || '');
     setDaySettings(daySettings);
     setAddress(initialEventData.address || '');
+    setSelectedLocationSuggestion(null);
     setSelectedLatitude(initialEventData.latitude);
     setSelectedLongitude(initialEventData.longitude);
     setCost(priceStr);
@@ -584,6 +592,10 @@ export default function PreviewScreen() {
   const iconColor = Colors[colorScheme].icon;
   const placeholderColor = iconColor;
   const errorColor = Colors[colorScheme].error;
+  const locationPreviewIconSize = 20;
+  const locationPreviewLines = selectedLocationSuggestion
+    ? formatSuggestionListLines(selectedLocationSuggestion)
+    : formatDisplayNameToListLines(address);
 
   // Check if form is valid for submit button state
   // Use checkFormValid to ensure button state updates when errors are fixed
@@ -966,22 +978,53 @@ export default function PreviewScreen() {
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
-                  justifyContent: 'space-between',
-                  paddingVertical: 12,
+                  paddingVertical: 14,
                   paddingHorizontal: 4,
                 }}
               >
-                <Text
-                  style={{
-                    fontSize: 16,
-                    color: address ? textColor : textColor + '99',
-                    fontWeight: '500',
-                    flex: 1,
-                  }}
-                  numberOfLines={1}
-                >
-                  {address || 'Search for a location...'}
-                </Text>
+                <View style={{ marginRight: 12 }}>
+                  {selectedLocationSuggestion ? (
+                    getIconForSuggestion(selectedLocationSuggestion, iconColor, locationPreviewIconSize)
+                  ) : (
+                    <Ionicons name="location-outline" size={locationPreviewIconSize} color={iconColor} />
+                  )}
+                </View>
+                <View style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
+                  {address ? (
+                    <>
+                      <Text
+                        style={{
+                          fontSize: 16,
+                          fontWeight: '500',
+                          color: textColor,
+                          marginBottom: locationPreviewLines.secondary ? 2 : 0,
+                        }}
+                      >
+                        {locationPreviewLines.primary}
+                      </Text>
+                      {locationPreviewLines.secondary ? (
+                        <Text
+                          style={{
+                            fontSize: 14,
+                            color: iconColor,
+                          }}
+                        >
+                          {locationPreviewLines.secondary}
+                        </Text>
+                      ) : null}
+                    </>
+                  ) : (
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        fontWeight: '500',
+                        color: textColor + '99',
+                      }}
+                    >
+                      Search for a location...
+                    </Text>
+                  )}
+                </View>
                 <Ionicons name="chevron-forward" size={20} color={textColor + '99'} />
               </TouchableOpacity>
               {errors.address && (

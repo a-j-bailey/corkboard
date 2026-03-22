@@ -188,3 +188,20 @@ export function formatSuggestionListLines(
   const rest = segments.slice(1).join(', ');
   return { primary: primary || segments[0] || displayName, secondary: rest };
 }
+
+/**
+ * Two-line labels from a plain `display_name` when OSM `address` is unavailable
+ * (e.g. prefilled from extraction). Matches the fallback branch of
+ * `formatSuggestionListLines`.
+ */
+export function formatDisplayNameToListLines(displayName: string): { primary: string; secondary: string } {
+  const trimmed = (displayName ?? '').trim();
+  if (!trimmed) {
+    return { primary: '', secondary: '' };
+  }
+  const segments = trimmed.split(',').map((s) => s.trim()).filter(Boolean);
+  if (segments.length <= 1) {
+    return { primary: segments[0] ?? trimmed, secondary: '' };
+  }
+  return { primary: segments[0] ?? trimmed, secondary: segments.slice(1).join(', ') };
+}
