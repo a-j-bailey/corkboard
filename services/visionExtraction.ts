@@ -6,6 +6,9 @@ import { Event, EventDate } from '../contexts/EventContext';
 import { parseDates, parseEventDetails, parsePriceToNumber } from './eventParser';
 import { extractTextFromImage } from './textExtraction';
 
+/** Set `EXPO_PUBLIC_OCR_FIRST_EXTRACTION=1` to run local OCR + text parsing before the vision model (may skip vision when title+dates are found). Default is vision-only. */
+const useOcrFirstExtraction = process.env.EXPO_PUBLIC_OCR_FIRST_EXTRACTION === '1';
+
 // Zod schema for event extraction
 const eventSchema = z.object({
   // Extract only the primary/most prominent event to keep the response small and fast.
@@ -53,6 +56,7 @@ async function convertImageToBase64(uri: string): Promise<string> {
  *
  * @param imageUri - URI of the image to process
  * @param apiKey - xAI API key
+ * Opt in to OCR-first with env `EXPO_PUBLIC_OCR_FIRST_EXTRACTION=1` (default is vision-only).
  */
 export async function extractEventFromImage(
   imageUri: string,
@@ -61,35 +65,39 @@ export async function extractEventFromImage(
   console.log('[VisionExtraction] Starting event extraction from image');
 
   try {
-    // 1) OCR-first attempt (fast, local) before calling any vision model.
-    try {
-      const ocrStartMs = Date.now();
-      console.log('[VisionExtraction] Attempting OCR-first extraction...');
+    // 1) Optional OCR-first attempt (fast, local) before calling any vision model.
+    if (useOcrFirstExtraction) {
+      try {
+        const ocrStartMs = Date.now();
+        console.log('[VisionExtraction] Attempting OCR-first extraction...');
 
-      const extractedText = await extractTextFromImage(imageUri);
-      const ocrTextMs = Date.now() - ocrStartMs;
-      console.log(
-        '[VisionExtraction] OCR text extracted in ms:',
-        ocrTextMs,
-        'length:',
-        extractedText.length
-      );
+        const extractedText = await extractTextFromImage(imageUri);
+        const ocrTextMs = Date.now() - ocrStartMs;
+        console.log(
+          '[VisionExtraction] OCR text extracted in ms:',
+          ocrTextMs,
+          'length:',
+          extractedText.length
+        );
 
-      const parsedFromText = await parseEventDetails(extractedText);
-      const hasTitle = !!parsedFromText.title && parsedFromText.title.trim().length > 0;
-      const hasDates = Array.isArray(parsedFromText.dates) && parsedFromText.dates.length > 0;
-      console.log('[VisionExtraction] OCR parsed fields - title:', hasTitle, 'dates:', hasDates);
+        const parsedFromText = await parseEventDetails(extractedText);
+        const hasTitle = !!parsedFromText.title && parsedFromText.title.trim().length > 0;
+        const hasDates = Array.isArray(parsedFromText.dates) && parsedFromText.dates.length > 0;
+        console.log('[VisionExtraction] OCR parsed fields - title:', hasTitle, 'dates:', hasDates);
 
-      // If we have the critical fields, skip the slow vision model entirely.
-      if (hasTitle && hasDates) {
-        console.log('[VisionExtraction] OCR-first succeeded; skipping vision model.');
-        return parsedFromText;
+        // If we have the critical fields, skip the slow vision model entirely.
+        if (hasTitle && hasDates) {
+          console.log('[VisionExtraction] OCR-first succeeded; skipping vision model.');
+          return parsedFromText;
+        }
+      } catch (ocrError) {
+        console.warn(
+          '[VisionExtraction] OCR-first extraction failed; falling back to vision model:',
+          ocrError instanceof Error ? ocrError.message : ocrError
+        );
       }
-    } catch (ocrError) {
-      console.warn(
-        '[VisionExtraction] OCR-first extraction failed; falling back to vision model:',
-        ocrError instanceof Error ? ocrError.message : ocrError
-      );
+    } else {
+      console.log('[VisionExtraction] OCR-first disabled; using vision model only.');
     }
 
     // Check if API key is available only when we need the vision model.
