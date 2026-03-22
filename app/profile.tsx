@@ -17,7 +17,7 @@ import { useUser } from '../contexts/UserContext';
 
 export default function ProfileScreen() {
   const { colorScheme } = useTheme();
-  const { user, loading, signInWithApple, signOut } = useUser();
+  const { user, loading, isSuperUser, signInWithApple, signOut } = useUser();
   const router = useRouter();
   const headerHeight = useHeaderHeight();
   const insets = useSafeAreaInsets();
@@ -184,6 +184,20 @@ export default function ProfileScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ color: textColor, fontWeight: '700', fontSize: 18 }}>{displayName}</Text>
+                {isSuperUser ? (
+                  <View
+                    style={{
+                      alignSelf: 'flex-start',
+                      marginTop: 6,
+                      paddingHorizontal: 8,
+                      paddingVertical: 3,
+                      borderRadius: 6,
+                      backgroundColor: tintColor + '28',
+                    }}
+                  >
+                    <Text style={{ color: tintColor, fontSize: 12, fontWeight: '600' }}>Super user</Text>
+                  </View>
+                ) : null}
               </View>
             </View>
           </View>
