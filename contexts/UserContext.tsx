@@ -1,8 +1,8 @@
-import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import { Platform, Alert } from 'react-native';
 import Constants from 'expo-constants';
+import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import { Alert, Platform } from 'react-native';
 import { identifyDevice } from 'vexo-analytics';
 import { supabase } from '../lib/supabase';
 
