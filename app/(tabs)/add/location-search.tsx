@@ -1,11 +1,12 @@
-import { Ionicons } from '@expo/vector-icons';
-import type { LocationSuggestion, OpenStreetMapResult } from '@julekgwa/react-native-places-autocomplete';
 import { getIconForSuggestion } from '@/components/LocationSearchWithIcons';
 import { Colors } from '@/constants/theme';
-import { useLocationSelection } from '@/contexts/LocationSelectionContext';
 import { useEvents } from '@/contexts/EventContext';
+import { useLocationSelection } from '@/contexts/LocationSelectionContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { fetchLocationSuggestions } from '@/services/locationSearchService';
+import { formatSuggestionListLines } from '@/utils/formatNominatimSuggestion';
+import { Ionicons } from '@expo/vector-icons';
+import type { LocationSuggestion, OpenStreetMapResult } from '@julekgwa/react-native-places-autocomplete';
 import { GlassView } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -77,46 +78,51 @@ export default function LocationSearchScreen() {
   );
 
   const renderItem: ListRenderItem<LocationSuggestion<OpenStreetMapResult>> = useCallback(
-    ({ item }) => (
-      <TouchableOpacity
-        onPress={() => handleSelect(item)}
-        activeOpacity={0.7}
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          paddingHorizontal: 20,
-          paddingVertical: 14,
-          borderBottomWidth: 1,
-          borderBottomColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)',
-        }}
-      >
-        <View style={{ marginRight: 12 }}>
-          {getIconForSuggestion(item, iconColor, ICON_SIZE)}
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text
-            style={{
-              fontSize: 16,
-              fontWeight: '500',
-              color: textColor,
-              marginBottom: 2,
-            }}
-            numberOfLines={1}
-          >
-            {item.display_name.split(',')[0]}
-          </Text>
-          <Text
-            style={{
-              fontSize: 14,
-              color: iconColor,
-            }}
-            numberOfLines={1}
-          >
-            {item.display_name.split(',').slice(1).join(',').trim()}
-          </Text>
-        </View>
-      </TouchableOpacity>
-    ),
+    ({ item }) => {
+      const { primary, secondary } = formatSuggestionListLines(item);
+      return (
+        <TouchableOpacity
+          onPress={() => handleSelect(item)}
+          activeOpacity={0.7}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: 20,
+            paddingVertical: 14,
+            borderBottomWidth: 1,
+            borderBottomColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)',
+          }}
+        >
+          <View style={{ marginRight: 12 }}>
+            {getIconForSuggestion(item, iconColor, ICON_SIZE)}
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text
+              style={{
+                fontSize: 16,
+                fontWeight: '500',
+                color: textColor,
+                marginBottom: 2,
+              }}
+              numberOfLines={2}
+            >
+              {primary}
+            </Text>
+            {secondary ? (
+              <Text
+                style={{
+                  fontSize: 14,
+                  color: iconColor,
+                }}
+                numberOfLines={2}
+              >
+                {secondary}
+              </Text>
+            ) : null}
+          </View>
+        </TouchableOpacity>
+      );
+    },
     [handleSelect, textColor, iconColor, colorScheme]
   );
 
