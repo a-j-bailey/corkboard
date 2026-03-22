@@ -1,6 +1,8 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { File } from 'expo-file-system';
+import { Image } from 'react-native';
 import { z } from 'zod';
 import { Event, EventDate } from '../contexts/EventContext';
 import { parseDates, parseEventDetails, parsePriceToNumber } from './eventParser';
@@ -9,7 +11,13 @@ import { extractTextFromImage } from './textExtraction';
 /** Set `EXPO_PUBLIC_OCR_FIRST_EXTRACTION=1` to run local OCR + text parsing before the vision model (may skip vision when title+dates are found). Default is vision-only. */
 const useOcrFirstExtraction = process.env.EXPO_PUBLIC_OCR_FIRST_EXTRACTION === '1';
 
-const VISION_EXTRACTION_MAX_OUTPUT_TOKENS = 1200;
+/** Typical JSON output is a few hundred tokens; cap reduces decode latency vs a very high max. */
+const VISION_EXTRACTION_MAX_OUTPUT_TOKENS = 768;
+
+/** Longest edge for vision API — posters stay readable; smaller payloads = less upload + vision latency. */
+const VISION_MAX_IMAGE_DIMENSION = 1280;
+
+const VISION_JPEG_QUALITY = 0.82;
 
 /** Lenient: models often return domains or paths without a scheme; we normalize when mapping to Event. */
 const optionalWebsiteString = z
@@ -224,6 +232,41 @@ function normalizeWebsiteUrl(raw: string | undefined): string | undefined {
   return t;
 }
 
+function getImagePixelSize(uri: string): Promise<{ width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    Image.getSize(uri, (width, height) => resolve({ width, height }), reject);
+  });
+}
+
+/**
+ * Downscales large camera images and recompresses JPEG to shrink the vision request (faster round-trip).
+ * Falls back to raw base64 if manipulation fails.
+ */
+async function prepareImageForVisionApi(uri: string): Promise<string> {
+  try {
+    const { width, height } = await getImagePixelSize(uri);
+    const maxDim = Math.max(width, height);
+    const actions: ImageManipulator.Action[] = [];
+    if (maxDim > VISION_MAX_IMAGE_DIMENSION) {
+      actions.push(
+        width >= height
+          ? { resize: { width: VISION_MAX_IMAGE_DIMENSION } }
+          : { resize: { height: VISION_MAX_IMAGE_DIMENSION } }
+      );
+    }
+    const { uri: outUri } = await ImageManipulator.manipulateAsync(uri, actions, {
+      compress: VISION_JPEG_QUALITY,
+      format: ImageManipulator.SaveFormat.JPEG,
+    });
+    const file = new File(outUri);
+    const base64 = await file.base64();
+    return `data:image/jpeg;base64,${base64}`;
+  } catch (e) {
+    console.warn('[VisionExtraction] prepareImageForVisionApi failed, using full-size image:', e);
+    return convertImageToBase64(uri);
+  }
+}
+
 /**
  * Converts image URI to base64 string
  */
@@ -299,7 +342,7 @@ export async function extractEventFromImage(
     let base64Image: string;
     const base64StartMs = Date.now();
     try {
-      base64Image = await convertImageToBase64(imageUri);
+      base64Image = await prepareImageForVisionApi(imageUri);
       console.log(
         '[VisionExtraction] Image converted to base64, size:',
         Math.round(base64Image.length / 1024),
@@ -339,12 +382,12 @@ export async function extractEventFromImage(
     try {
       result = await generateObject({
         model,
-        // providerOptions: {
-        //   openai: {
-        //     // Using low detail reduces visual processing cost/latency.
-        //     // imageDetail: 'low',
-        //   },
-        // },
+        providerOptions: {
+          openai: {
+            // Fewer vision tokens / faster than "high" or "auto" on OpenAI-compatible providers.
+            imageDetail: 'low',
+          },
+        },
         maxRetries: 1,
         maxOutputTokens: VISION_EXTRACTION_MAX_OUTPUT_TOKENS,
         messages: [

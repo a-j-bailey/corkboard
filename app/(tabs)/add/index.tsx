@@ -93,7 +93,7 @@ export default function CameraScreen() {
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
-  const [extractionStatusLabel, setExtractionStatusLabel] = useState(
+  const [extractionStatusLabel, setExtractionStatusLabel] = useState<string>(
     ExtractionStepMessage.extracting
   );
   const [capturedPosterUri, setCapturedPosterUri] = useState<string | null>(null);
