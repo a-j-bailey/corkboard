@@ -43,6 +43,9 @@ function RootStack() {
           name="profile"
           options={{
             title: 'Profile',
+            headerTransparent: true,
+            headerStyle: { backgroundColor: 'transparent' },
+            headerShadowVisible: false,
           }}
         />
         <Stack.Screen

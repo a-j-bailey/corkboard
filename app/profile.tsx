@@ -3,12 +3,13 @@ import { Ionicons } from '@expo/vector-icons';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { GlassView } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
+import { useHeaderHeight } from '@react-navigation/elements';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import type { ReactNode } from 'react';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from '../components/themed-text';
 import { Colors } from '../constants/theme';
 import { useTheme } from '../contexts/ThemeContext';
@@ -18,6 +19,7 @@ export default function ProfileScreen() {
   const { colorScheme } = useTheme();
   const { user, loading, signInWithApple, signOut } = useUser();
   const router = useRouter();
+  const headerHeight = useHeaderHeight();
   const insets = useSafeAreaInsets();
   const backgroundColor = Colors[colorScheme].background;
   const textColor = Colors[colorScheme].text;
@@ -49,7 +51,16 @@ export default function ProfileScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor, justifyContent: 'center', alignItems: 'center' }}>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor,
+          paddingTop: headerHeight,
+          paddingBottom: insets.bottom,
+          justifyContent: 'center',
+          alignItems: 'center',
+        }}
+      >
         {canShowGlass ? (
           <GlassView
             style={{
@@ -68,7 +79,7 @@ export default function ProfileScreen() {
             <ActivityIndicator size="large" color={textColor} />
           </View>
         )}
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -138,12 +149,12 @@ export default function ProfileScreen() {
     };
 
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: screenBackgroundColor }}>
+      <View style={{ flex: 1, backgroundColor: screenBackgroundColor }}>
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{
             paddingHorizontal: 16,
-            paddingTop: 12,
+            paddingTop: headerHeight + 12,
             paddingBottom: insets.bottom + 24,
             gap: 16,
           }}
@@ -264,16 +275,17 @@ export default function ProfileScreen() {
             />
           </View>
         </ScrollView>
-      </SafeAreaView>
+      </View>
     );
   }
 
   // User not logged in - show sign in
   return (
-    <SafeAreaView
+    <View
       style={{
         flex: 1,
         backgroundColor,
+        paddingTop: headerHeight,
         justifyContent: 'center',
         alignItems: 'center',
         paddingHorizontal: 24,
@@ -463,6 +475,6 @@ export default function ProfileScreen() {
           )}
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
