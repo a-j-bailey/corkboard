@@ -1,6 +1,10 @@
 import Constants from 'expo-constants';
 import { Router } from 'expo-router';
 import { Alert } from 'react-native';
+import type { Event } from '../../../contexts/EventContext';
+import { ExtractionStepMessage } from '../../../services/extractionMessages';
+import { resolveExtractedLocationString } from '../../../services/resolveExtractedLocation';
+import type { UserLocation } from '../../../services/locationService';
 import { extractEventFromImage } from '../../../services/visionExtraction';
 
 /**
@@ -10,7 +14,12 @@ import { extractEventFromImage } from '../../../services/visionExtraction';
 export async function processPosterImage(
   imageUri: string,
   router: Router,
-  options?: { onComplete?: () => void }
+  options?: {
+    onComplete?: () => void;
+    userLocation?: UserLocation | null;
+    /** Shown under the spinner while extraction and location resolution run. */
+    onProgress?: (message: string) => void;
+  }
 ): Promise<void> {
   const onComplete = options?.onComplete;
 
@@ -31,7 +40,32 @@ export async function processPosterImage(
       return;
     }
 
-    const eventData = await extractEventFromImage(imageUri, xaiApiKey);
+    const onProgress = options?.onProgress;
+    onProgress?.(ExtractionStepMessage.extracting);
+
+    let eventData: Partial<Event> = await extractEventFromImage(imageUri, xaiApiKey);
+
+    const rawAddress = eventData.address?.trim();
+    if (rawAddress) {
+      const resolved = await resolveExtractedLocationString(rawAddress, {
+        userLocation: options?.userLocation,
+        onProgress,
+      });
+      if (resolved) {
+        eventData = {
+          ...eventData,
+          address: resolved.address,
+          locationName: resolved.locationName,
+          latitude: resolved.latitude,
+          longitude: resolved.longitude,
+        };
+      } else {
+        delete eventData.address;
+        delete eventData.locationName;
+        delete eventData.latitude;
+        delete eventData.longitude;
+      }
+    }
 
     router.push({
       pathname: '/add/preview',

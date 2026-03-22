@@ -12,6 +12,9 @@ import { calculateDistance } from '../utils/distanceCalculator';
 
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
 
+/** Required by Nominatim usage policy: identify the application. */
+const NOMINATIM_USER_AGENT = 'Corkboard/1.0 (event poster app; contact: app@corkboard.local)';
+
 interface NominatimResult {
   place_id?: number | string;
   osm_id?: number | string;
@@ -89,7 +92,10 @@ export async function fetchLocationSuggestions(
   }
 
   const res = await fetch(`${NOMINATIM_URL}?${params.toString()}`, {
-    headers: { Accept: 'application/json' },
+    headers: {
+      Accept: 'application/json',
+      'User-Agent': NOMINATIM_USER_AGENT,
+    },
   });
 
   if (!res.ok) {

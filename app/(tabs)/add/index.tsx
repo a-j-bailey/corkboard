@@ -21,7 +21,9 @@ import {
 } from 'react-native-vision-camera';
 import { ThemedText } from '../../../components/themed-text';
 import { Colors } from '../../../constants/theme';
+import { useEvents } from '../../../contexts/EventContext';
 import { useTheme } from '../../../contexts/ThemeContext';
+import { ExtractionStepMessage } from '../../../services/extractionMessages';
 import { processPosterImage } from './processPosterImage';
 
 const POSTER_ASPECT_RATIO = 2 / 3; // width / height
@@ -82,6 +84,7 @@ function frameRectToSnapshotCrop(
 
 export default function CameraScreen() {
   const router = useRouter();
+  const { userLocation } = useEvents();
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
   const { colorScheme } = useTheme();
@@ -90,6 +93,9 @@ export default function CameraScreen() {
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
+  const [extractionStatusLabel, setExtractionStatusLabel] = useState(
+    ExtractionStepMessage.extracting
+  );
   const [capturedPosterUri, setCapturedPosterUri] = useState<string | null>(null);
 
   const isMountedRef = useRef(true);
@@ -220,6 +226,7 @@ export default function CameraScreen() {
     setIsExtracting(false);
     setIsCapturing(false);
     setCapturedPosterUri(null);
+    setExtractionStatusLabel(ExtractionStepMessage.extracting);
 
     posterOpacity.setValue(0);
     flashOpacity.setValue(0);
@@ -268,6 +275,7 @@ export default function CameraScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setIsCapturing(true);
     setIsExtracting(true);
+    setExtractionStatusLabel(ExtractionStepMessage.extracting);
 
     // Immediate shutter flash.
     flashOpacity.setValue(1);
@@ -330,6 +338,8 @@ export default function CameraScreen() {
       }
 
       await processPosterImage(uri, router, {
+        userLocation,
+        onProgress: setExtractionStatusLabel,
         onComplete: () => {
           if (!isMountedRef.current) return;
 
@@ -353,6 +363,7 @@ export default function CameraScreen() {
       if (isMountedRef.current) {
         setIsExtracting(false);
         setCapturedPosterUri(null);
+        setExtractionStatusLabel(ExtractionStepMessage.extracting);
         posterOpacity.setValue(0);
         borderLoopRef.current?.stop();
         borderLoopRef.current = null;
@@ -502,7 +513,7 @@ export default function CameraScreen() {
           <View>
             <ActivityIndicator size="small" color="#E5E7EB" />
             <ThemedText style={styles.shutterMessageText}>
-              extracting event information
+              {extractionStatusLabel}
             </ThemedText>
           </View>
         ) : isCapturing ? (

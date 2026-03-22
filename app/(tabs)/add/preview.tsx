@@ -314,6 +314,8 @@ export default function PreviewScreen() {
     setTitle(initialEventData.title || '');
     setDaySettings(daySettings);
     setAddress(initialEventData.address || '');
+    setSelectedLatitude(initialEventData.latitude);
+    setSelectedLongitude(initialEventData.longitude);
     setCost(priceStr);
     setIsFree(priceStr === 'Free' || initialEventData.price === 0);
     setWebsiteUrl(initialEventData.websiteUrl || '');
