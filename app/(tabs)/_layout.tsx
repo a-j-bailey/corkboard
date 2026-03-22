@@ -1,5 +1,6 @@
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
+import { useUser } from '@/contexts/UserContext';
 import { isGlassEffectAPIAvailable } from 'expo-glass-effect';
 import { Tabs, useSegments } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
@@ -9,9 +10,15 @@ import { useTheme } from '../../contexts/ThemeContext';
 export default function TabsLayout() {
   const { colorScheme } = useTheme();
   const segments = useSegments();
+  const { user, loading: authLoading } = useUser();
   const lastSegment = segments[segments.length - 1];
-  const hideTabs = lastSegment === 'add' || lastSegment === 'preview';
+
+  const hideTabs = user != null && (lastSegment === 'add' || lastSegment === 'preview');
   const useNativeTabs = isGlassEffectAPIAvailable();
+
+  console.log('hideTabs', hideTabs);
+  console.log('user', user);
+  console.log('authLoading', authLoading);
 
   if (useNativeTabs) {
     return (

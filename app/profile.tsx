@@ -1,30 +1,27 @@
-import { Host } from '@expo/ui/swift-ui';
 import { Ionicons } from '@expo/vector-icons';
 import { useHeaderHeight } from '@react-navigation/elements';
-import * as AppleAuthentication from 'expo-apple-authentication';
 import { GlassView } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import type { ReactNode } from 'react';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ThemedText } from '../components/themed-text';
+import { ProfileSignInPrompt } from '../components/ProfileSignInPrompt';
 import { Colors } from '../constants/theme';
 import { useTheme } from '../contexts/ThemeContext';
 import { useUser } from '../contexts/UserContext';
 
 export default function ProfileScreen() {
   const { colorScheme } = useTheme();
-  const { user, loading, isSuperUser, signInWithApple, signOut } = useUser();
+  const { user, loading, isSuperUser, signOut } = useUser();
   const router = useRouter();
   const headerHeight = useHeaderHeight();
   const insets = useSafeAreaInsets();
   const backgroundColor = Colors[colorScheme].background;
   const textColor = Colors[colorScheme].text;
   const tintColor = Colors[colorScheme].tint;
-  const yellowColor = Colors[colorScheme].yellow;
   const userJotUrl = 'https://corkboard.userjot.com/';
 
   const handleOpenUserJotFeedback = async () => {
@@ -195,7 +192,7 @@ export default function ProfileScreen() {
                       backgroundColor: tintColor + '28',
                     }}
                   >
-                    <Text style={{ color: tintColor, fontSize: 12, fontWeight: '600' }}>Super user</Text>
+                    <Text style={{ color: tintColor, fontSize: 12, fontWeight: '600' }}>Super User</Text>
                   </View>
                 ) : null}
               </View>
@@ -293,201 +290,5 @@ export default function ProfileScreen() {
   }
 
   // User not logged in - show sign in
-  return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor,
-        paddingTop: headerHeight,
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingHorizontal: 24,
-      }}
-    >
-      <ScrollView
-        contentContainerStyle={{
-          flexGrow: 1,
-          justifyContent: 'center',
-          alignItems: 'center',
-          gap: 32,
-          paddingVertical: 40,
-        }}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Welcome Card */}
-        {canShowGlass ? (
-          <GlassView
-            style={{
-              borderRadius: 32,
-              padding: 32,
-              alignItems: 'center',
-              overflow: 'hidden',
-              maxWidth: 400,
-            }}
-            glassEffectStyle="regular"
-          >
-            <View
-              style={{
-                width: 100,
-                height: 100,
-                borderRadius: 50,
-                backgroundColor: tintColor + '20',
-                justifyContent: 'center',
-                alignItems: 'center',
-                marginBottom: 24,
-              }}
-            >
-              <Ionicons name="person-outline" size={48} color={tintColor} />
-            </View>
-
-            <ThemedText
-              type="title"
-              style={{
-                color: textColor,
-                fontSize: 32,
-                marginBottom: 12,
-                textAlign: 'center',
-              }}
-            >
-              Welcome
-            </ThemedText>
-
-            <ThemedText
-              type="default"
-              style={{
-                textAlign: 'center',
-                color: textColor,
-                opacity: 0.8,
-                fontSize: 16,
-                lineHeight: 24,
-                marginBottom: 8,
-              }}
-            >
-              Sign in to save and sync your corkboard across all your devices.
-            </ThemedText>
-          </GlassView>
-        ) : (
-          <View
-            style={{
-              borderRadius: 32,
-              padding: 32,
-              alignItems: 'center',
-              overflow: 'hidden',
-              maxWidth: 400,
-              backgroundColor: backgroundColor + 'E6',
-            }}
-          >
-            <View
-              style={{
-                width: 100,
-                height: 100,
-                borderRadius: 50,
-                backgroundColor: tintColor + '20',
-                justifyContent: 'center',
-                alignItems: 'center',
-                marginBottom: 24,
-              }}
-            >
-              <Ionicons name="person-outline" size={48} color={tintColor} />
-            </View>
-            <ThemedText
-              type="title"
-              style={{ color: textColor, fontSize: 32, marginBottom: 12, textAlign: 'center' }}
-            >
-              Welcome
-            </ThemedText>
-            <ThemedText
-              type="default"
-              style={{ textAlign: 'center', color: textColor, opacity: 0.8, fontSize: 16, lineHeight: 24, marginBottom: 8 }}
-            >
-              Sign in to save and sync your corkboard across all your devices.
-            </ThemedText>
-          </View>
-        )}
-
-        {/* Sign In Button */}
-        <View style={{ width: '100%', maxWidth: 400, gap: 16 }}>
-          {Platform.OS === 'ios' ? (
-            <Host>
-              <AppleAuthentication.AppleAuthenticationButton
-                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-                buttonStyle={
-                  colorScheme === 'dark'
-                    ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
-                    : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
-                }
-                cornerRadius={16}
-                style={{ width: '100%', height: 56 }}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  signInWithApple();
-                }}
-              />
-            </Host>
-          ) : canShowGlass ? (
-            <TouchableOpacity onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              signInWithApple();
-            }} activeOpacity={0.7}>
-              <GlassView
-                style={{
-                  borderRadius: 16,
-                  paddingVertical: 18,
-                  paddingHorizontal: 24,
-                  overflow: 'hidden',
-                  width: '100%',
-                }}
-                glassEffectStyle="regular"
-                tintColor={tintColor}
-                isInteractive
-              >
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 12,
-                  }}
-                >
-                  <Ionicons name="logo-apple" size={24} color={Colors[colorScheme].background} />
-                  <Text
-                    style={{
-                      color: Colors[colorScheme].background,
-                      fontWeight: '700',
-                      fontSize: 17,
-                    }}
-                  >
-                    Sign in with Apple
-                  </Text>
-                </View>
-              </GlassView>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              signInWithApple();
-            }} activeOpacity={0.7}>
-              <View
-                style={{
-                  borderRadius: 16,
-                  paddingVertical: 18,
-                  paddingHorizontal: 24,
-                  overflow: 'hidden',
-                  width: '100%',
-                  backgroundColor: tintColor + 'E6',
-                }}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-                  <Ionicons name="logo-apple" size={24} color={Colors[colorScheme].background} />
-                  <Text style={{ color: Colors[colorScheme].background, fontWeight: '700', fontSize: 17 }}>
-                    Sign in with Apple
-                  </Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          )}
-        </View>
-      </ScrollView>
-    </View>
-  );
+  return <ProfileSignInPrompt paddingTop={headerHeight} />;
 }

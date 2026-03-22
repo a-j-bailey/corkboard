@@ -19,10 +19,12 @@ import {
   useCameraDevice,
   useCameraPermission,
 } from 'react-native-vision-camera';
+import { ProfileSignInPrompt } from '../../../components/ProfileSignInPrompt';
 import { ThemedText } from '../../../components/themed-text';
 import { Colors } from '../../../constants/theme';
 import { useEvents } from '../../../contexts/EventContext';
 import { useTheme } from '../../../contexts/ThemeContext';
+import { useUser } from '../../../contexts/UserContext';
 import { ExtractionStepMessage } from '../../../services/extractionMessages';
 import { processPosterImage } from './processPosterImage';
 
@@ -88,6 +90,7 @@ export default function CameraScreen() {
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
   const { colorScheme } = useTheme();
+  const { user, loading: authLoading } = useUser();
   const cameraRef = useRef<Camera>(null);
   const frameRef = useRef<View>(null);
   const [isCameraReady, setIsCameraReady] = useState(false);
@@ -378,6 +381,27 @@ export default function CameraScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.back();
   };
+
+  if (authLoading) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: Colors[colorScheme].background,
+          justifyContent: 'center',
+          alignItems: 'center',
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+        }}
+      >
+        <ActivityIndicator size="large" color={Colors[colorScheme].text} />
+      </View>
+    );
+  }
+
+  if (!user) {
+    return <ProfileSignInPrompt paddingTop={insets.top} paddingBottom={insets.bottom} />;
+  }
 
   if (!hasPermission) {
     return (
