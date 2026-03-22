@@ -9,32 +9,220 @@ import { extractTextFromImage } from './textExtraction';
 /** Set `EXPO_PUBLIC_OCR_FIRST_EXTRACTION=1` to run local OCR + text parsing before the vision model (may skip vision when title+dates are found). Default is vision-only. */
 const useOcrFirstExtraction = process.env.EXPO_PUBLIC_OCR_FIRST_EXTRACTION === '1';
 
-// Zod schema for event extraction
+const VISION_EXTRACTION_MAX_OUTPUT_TOKENS = 1200;
+
+/** Lenient: models often return domains or paths without a scheme; we normalize when mapping to Event. */
+const optionalWebsiteString = z
+  .string()
+  .max(2048)
+  .optional()
+  .describe('URL or domain/path as printed (https:// preferred; bare domains allowed).');
+
+const optionalHandle = z
+  .string()
+  .max(120)
+  .optional()
+  .describe('Exact text from the poster; @ prefix optional.');
+
+// Zod schema for event extraction — descriptions steer the model; constraints catch obvious junk.
 const eventSchema = z.object({
-  // Extract only the primary/most prominent event to keep the response small and fast.
   event: z
     .object({
-      title: z.string().optional().describe('Event title'),
-      date: z.string().optional().describe('Event date in YYYY-MM-DD format or as written on poster'),
-      time: z.string().optional().describe('Event time if available'),
-      address: z.string().optional().describe('Event address or location'),
-      cost: z.string().optional().describe('Event cost or price'),
-      websiteUrl: z.string().optional().describe('Event website URL'),
+      title: z
+        .string()
+        .max(300)
+        .optional()
+        .describe(
+          'Largest or most prominent headline for ONE event. Omit if unreadable. Ignore sponsor logos unless clearly the main title.'
+        ),
+      date: z
+        .string()
+        .max(200)
+        .optional()
+        .describe(
+          'When the headline event occurs. Prefer YYYY-MM-DD. For multi-day spans use "YYYY-MM-DD to YYYY-MM-DD". If no date appears, omit this field—do not guess a year.'
+        ),
+      time: z
+        .string()
+        .max(120)
+        .optional()
+        .describe(
+          'Start time and optional end (e.g. "7:00 PM" or "7pm - 10pm"). Omit if not on the poster.'
+        ),
+      address: z
+        .string()
+        .max(500)
+        .optional()
+        .describe('Venue street address or "Venue name, City" as printed. Omit if not visible; do not invent.'),
+      cost: z
+        .string()
+        .max(120)
+        .optional()
+        .describe('Price or admission exactly as written (e.g. "$15", "Free", "Donation"). Omit if unknown.'),
+      websiteUrl: optionalWebsiteString,
       socialMediaHandles: z
         .object({
-          x: z.string().optional(),
-          instagram: z.string().optional(),
-          facebook: z.string().optional(),
+          x: optionalHandle,
+          instagram: optionalHandle,
+          facebook: optionalHandle,
         })
         .optional()
-        .describe('Social media handles if available'),
-      description: z.string().optional().describe('Event description'),
-      organizationName: z.string().optional().describe('Organization or host name'),
+        .describe('Copy handles or page names exactly; omit any platform not shown on the image.'),
+      description: z
+        .string()
+        .max(4000)
+        .optional()
+        .describe(
+          'Supporting text: tagline, performers, fine print that clarifies the main event. Omit boilerplate and duplicate title.'
+        ),
+      organizationName: z
+        .string()
+        .max(200)
+        .optional()
+        .describe('Host, presenter, or organizer name as labeled (not the same as venue unless clearly one entity).'),
     })
-    .optional(),
+    .optional()
+    .describe(
+      'The single most prominent event on this image. Omit entire object only if there is no real event (e.g. blank, pure photo, or unreadable).'
+    ),
 });
 
+const VISION_EXTRACTION_USER_PROMPT = `You are extracting structured data for a community events app from ONE poster, flyer, or screenshot of an event graphic.
+
+## What to extract
+Identify the single PRIMARY event—the one the design is mainly advertising (usually the largest title and central message). Ignore background sponsors, ticket sellers, and small-print legal unless needed for time/price/location.
+
+## Rules
+1. **Read visually**: Use layout, font size, and hierarchy. Small or stylized text still matters for time, address, and URLs—read it carefully.
+2. **Transcribe literally**: Copy prices, URLs, handles, and venue names exactly as printed. Normalize dates to ISO when the calendar day is clear; otherwise transcribe the phrase (e.g. "Every Friday in March").
+3. **Do not invent**: If a field is missing, unclear, or cropped out, omit that field. Never fabricate dates, places, or links.
+4. **One event only**: If several events are listed, pick the dominant one. Do not merge unrelated events into one title.
+5. **Date & time**: Prefer YYYY-MM-DD for a single day; use "YYYY-MM-DD to YYYY-MM-DD" for a clear consecutive range. Put door/show times in "time" when shown.
+6. **URLs & social**: websiteUrl may be a full URL or a domain/path as printed (e.g. example.org/events). For social fields, use visible @handles or account names only.
+
+## Output
+Fill the schema fields accordingly. Prefer leaving fields empty over guessing.`;
+
 type ExtractedEventData = z.infer<typeof eventSchema>;
+
+const MAX_LOG_MODEL_TEXT = 16000;
+const MAX_LOG_HTTP_BODY = 8000;
+
+/**
+ * Logs generateObject / provider failures in detail for debugging (schema mismatch, raw model output, HTTP, Zod issues).
+ */
+function logVisionGenerateObjectFailure(apiError: unknown): void {
+  console.error('[VisionExtraction] generateObject failed — structured debug log');
+
+  if (apiError instanceof Error) {
+    console.error('[VisionExtraction] generateObject failed — name:', apiError.name);
+    console.error('[VisionExtraction] generateObject failed — message:', apiError.message);
+    if (apiError.stack) {
+      console.error('[VisionExtraction] generateObject failed — stack:', apiError.stack);
+    }
+  } else {
+    console.error('[VisionExtraction] generateObject failed — value:', apiError);
+  }
+
+  const e = apiError as Record<string, unknown>;
+
+  const rawText = e.text;
+  if (typeof rawText === 'string') {
+    console.error(
+      `[VisionExtraction] generateObject failed — raw model text (length=${rawText.length}):`,
+      rawText.length > MAX_LOG_MODEL_TEXT
+        ? `${rawText.slice(0, MAX_LOG_MODEL_TEXT)}…`
+        : rawText
+    );
+  }
+
+  const cause = e.cause;
+  if (cause != null) {
+    console.error('[VisionExtraction] generateObject failed — error.cause:', cause);
+    if (
+      typeof cause === 'object' &&
+      cause !== null &&
+      'issues' in cause &&
+      Array.isArray((cause as { issues: unknown }).issues)
+    ) {
+      console.error(
+        '[VisionExtraction] generateObject failed — Zod / validation issues:',
+        JSON.stringify((cause as { issues: unknown[] }).issues, null, 2)
+      );
+    }
+  }
+
+  const status = e.statusCode ?? e.status;
+  if (status != null) {
+    console.error('[VisionExtraction] generateObject failed — HTTP status:', status);
+  }
+
+  if (e.responseBody != null) {
+    const rb = e.responseBody;
+    const str = typeof rb === 'string' ? rb : JSON.stringify(rb);
+    console.error(
+      '[VisionExtraction] generateObject failed — responseBody:',
+      str.length > MAX_LOG_HTTP_BODY ? `${str.slice(0, MAX_LOG_HTTP_BODY)}…(truncated)` : str
+    );
+  }
+
+  if (e.response != null) {
+    try {
+      console.error('[VisionExtraction] generateObject failed — response:', JSON.stringify(e.response, null, 2));
+    } catch {
+      console.error('[VisionExtraction] generateObject failed — response:', e.response);
+    }
+  }
+
+  for (const key of ['data', 'value', 'finishReason', 'usage'] as const) {
+    if (e[key] != null) {
+      console.error(`[VisionExtraction] generateObject failed — ${key}:`, e[key]);
+    }
+  }
+
+  const skip = new Set([
+    'text',
+    'cause',
+    'responseBody',
+    'response',
+    'stack',
+    'message',
+    'name',
+    'data',
+    'value',
+    'finishReason',
+    'usage',
+    'statusCode',
+    'status',
+  ]);
+  for (const key of Object.keys(e)) {
+    if (skip.has(key)) continue;
+    const v = e[key];
+    if (typeof v === 'function') continue;
+    if (typeof v === 'string' && v.length > 4000) {
+      console.error(
+        `[VisionExtraction] generateObject failed — ${key} (truncated, len=${v.length}):`,
+        `${v.slice(0, 4000)}…`
+      );
+    } else {
+      console.error(`[VisionExtraction] generateObject failed — ${key}:`, v);
+    }
+  }
+}
+
+/**
+ * Adds https:// when the model returns a host or path without a scheme so links work in the app.
+ */
+function normalizeWebsiteUrl(raw: string | undefined): string | undefined {
+  if (!raw?.trim()) return undefined;
+  const t = raw.trim();
+  if (/^https?:\/\//i.test(t)) return t;
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(t)) return t;
+  if (/^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}/i.test(t) || t.startsWith('//')) {
+    return t.startsWith('//') ? `https:${t}` : `https://${t.replace(/^\/+/, '')}`;
+  }
+  return t;
+}
 
 /**
  * Converts image URI to base64 string
@@ -158,22 +346,14 @@ export async function extractEventFromImage(
         //   },
         // },
         maxRetries: 1,
-        maxOutputTokens: 300,
+        maxOutputTokens: VISION_EXTRACTION_MAX_OUTPUT_TOKENS,
         messages: [
           {
             role: 'user',
             content: [
               {
                 type: 'text',
-                text: `Extract the primary/most prominent event from this poster/flyer image.
-Return structured JSON with:
-- title
-- date
-- time (if available)
-- address/location (if available)
-- cost/price (if available)
-- websiteUrl and social handles (if available)
-- description and organizationName (if available)`,
+                text: VISION_EXTRACTION_USER_PROMPT,
               },
               {
                 type: 'image',
@@ -186,6 +366,8 @@ Return structured JSON with:
       });
       console.log('[VisionExtraction] Vision API call completed in ms:', Date.now() - visionStartMs);
     } catch (apiError) {
+      logVisionGenerateObjectFailure(apiError);
+
       const errorAny = apiError as any;
 
       // Extract error details
@@ -274,13 +456,13 @@ Return structured JSON with:
         dates: dates,
         price: price,
         address: firstEvent.address,
-        websiteUrl: firstEvent.websiteUrl,
+        websiteUrl: normalizeWebsiteUrl(firstEvent.websiteUrl),
         socialMediaHandles: socialMediaHandles,
         description: firstEvent.description,
         organizationName: firstEvent.organizationName,
       };
 
-      console.log('[VisionExtraction] Successfully extracted event:', firstEvent.title);
+      console.log('[VisionExtraction] Successfully extracted event:', firstEvent.title ?? '(no title)');
       return parsedEvent;
     }
 

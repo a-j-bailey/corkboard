@@ -7,10 +7,26 @@ import { resolveExtractedLocationString } from '../../../services/resolveExtract
 import type { UserLocation } from '../../../services/locationService';
 import { extractEventFromImage } from '../../../services/visionExtraction';
 
+/** True if at least one meaningful field was extracted — user can complete the rest in the form. */
 function hasExtractedEvent(eventData: Partial<Event>): boolean {
-  const title = eventData.title?.trim();
-  if (!title) return false;
-  return Array.isArray(eventData.dates) && eventData.dates.length > 0;
+  if (eventData.title?.trim()) return true;
+  if (Array.isArray(eventData.dates) && eventData.dates.length > 0) return true;
+
+  const hasSocial =
+    !!eventData.socialMediaHandles &&
+    Object.values(eventData.socialMediaHandles).some(
+      (v) => typeof v === 'string' && v.trim().length > 0
+    );
+
+  return (
+    !!eventData.address?.trim() ||
+    !!eventData.locationName?.trim() ||
+    !!eventData.description?.trim() ||
+    !!eventData.organizationName?.trim() ||
+    !!eventData.websiteUrl?.trim() ||
+    eventData.price != null ||
+    hasSocial
+  );
 }
 
 /**
@@ -77,7 +93,7 @@ export async function processPosterImage(
       onComplete?.();
       Alert.alert(
         'No event found',
-        'We could not read a clear event title and date from this image. Try a well-lit photo of the full poster, or use a different image.'
+        'We could not read any event details from this image (title, date, location, etc.). Try a well-lit photo of the full poster, or use a different image.'
       );
       return;
     }

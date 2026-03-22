@@ -460,7 +460,51 @@ function isAddressLike(text: string): boolean {
  * - Date range: "September 11 - 14, 2025" → [{start: "2025-09-11T00:00:00"}, {start: "2025-09-12T00:00:00"}, ...]
  * - Time range: "9/11/2025 @ 7am - 12pm" → [{start: "2025-09-11T07:00:00", end: "2025-09-11T12:00:00"}]
  * - Multiple times: "9/11/2025 @ 12pm & 4pm" → [{start: "2025-09-11T12:00:00"}, {start: "2025-09-11T16:00:00"}]
+ * - Month and day without year: "March 21" → same month/day in the current calendar year (local midnight)
  */
+function tryParseMonthDayWithoutYear(trimmed: string): Date | null {
+  const monthDayOnlyPattern =
+    /^(january|february|march|april|may|june|july|august|september|october|november|december|jan\.?|feb\.?|mar\.?|apr\.?|jun\.?|jul\.?|aug\.?|sep\.?|sept\.?|oct\.?|nov\.?|dec\.?)\s+(\d{1,2})(?:st|nd|rd|th)?$/i;
+  const match = trimmed.match(monthDayOnlyPattern);
+  if (!match) return null;
+
+  const monthToken = match[1].toLowerCase().replace(/\.$/, '');
+  const day = parseInt(match[2], 10);
+  const monthMap: Record<string, number> = {
+    january: 0,
+    jan: 0,
+    february: 1,
+    feb: 1,
+    march: 2,
+    mar: 2,
+    april: 3,
+    apr: 3,
+    may: 4,
+    june: 5,
+    jun: 5,
+    july: 6,
+    jul: 6,
+    august: 7,
+    aug: 7,
+    september: 8,
+    sep: 8,
+    sept: 8,
+    october: 9,
+    oct: 9,
+    november: 10,
+    nov: 10,
+    december: 11,
+    dec: 11,
+  };
+  const monthIndex = monthMap[monthToken];
+  if (monthIndex === undefined || day < 1 || day > 31) return null;
+
+  const year = new Date().getFullYear();
+  const candidate = new Date(year, monthIndex, day, 0, 0, 0);
+  if (candidate.getMonth() !== monthIndex) return null;
+  return candidate;
+}
+
 export function parseDates(dateStr?: string, timeStr?: string): EventDate[] {
   if (!dateStr || dateStr.trim().length === 0) {
     console.log('[EventParser] No date string provided');
@@ -548,6 +592,11 @@ export function parseDates(dateStr?: string, timeStr?: string): EventDate[] {
       const [year, month, day] = trimmedDateStr.split('-').map(Number);
       baseDate = new Date(year, month - 1, day, 0, 0, 0);
     } else {
+      const monthDayInferred = tryParseMonthDayWithoutYear(trimmedDateStr);
+      if (monthDayInferred) {
+        console.log('[EventParser] Parsed month/day without year:', monthDayInferred.toISOString());
+        baseDate = monthDayInferred;
+      } else {
       // Try parsing as-is - if it's a date string without time, parse components
       console.log('[EventParser] Attempting to parse date string as-is');
       const parsed = new Date(trimmedDateStr);
@@ -568,6 +617,7 @@ export function parseDates(dateStr?: string, timeStr?: string): EventDate[] {
       } else {
         baseDate = parsed;
       }
+    }
     }
     
     if (isNaN(baseDate.getTime())) {
