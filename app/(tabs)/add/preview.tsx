@@ -25,6 +25,7 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import { parsePriceToNumber } from '../../../services/eventParser';
 import { geocodeLocation } from '../../../services/geocodingService';
 import { formatSaveError } from '../../../utils/formatSaveError';
+import { trackVexoEvent } from '../../../utils/trackVexoEvent';
 
 // Day settings interface
 interface DaySettings {
@@ -170,6 +171,8 @@ export default function PreviewScreen() {
   const params = useLocalSearchParams<{
     eventData?: string;
     posterImageUri?: string;
+    /** Milliseconds for vision extraction + location resolution (poster flow only). */
+    extractionDurationMs?: string;
   }>();
 
   // Parse event data from route params
@@ -183,6 +186,14 @@ export default function PreviewScreen() {
   }
 
   const posterImageUri = params.posterImageUri || undefined;
+
+  const extractionDurationMsParsed = params.extractionDurationMs
+    ? Number(params.extractionDurationMs)
+    : NaN;
+  const extractionDurationMs =
+    Number.isFinite(extractionDurationMsParsed) && extractionDurationMsParsed >= 0
+      ? Math.round(extractionDurationMsParsed)
+      : undefined;
 
   // Helper function to extract initial day settings from EventDate array
   const extractInitialDaySettings = (eventData: Partial<Event>): DaySettings[] => {
@@ -542,7 +553,13 @@ export default function PreviewScreen() {
       };
 
       console.log('[PreviewScreen] Saving event:', JSON.stringify(eventData, null, 2));
-      await addEvent(eventData, posterImageUri);
+      const newEvent = await addEvent(eventData, posterImageUri);
+      if (extractionDurationMs !== undefined) {
+        trackVexoEvent('submit_event', {
+          eventId: newEvent.id,
+          extractionDurationMs,
+        });
+      }
     } catch (error) {
       console.error('[PreviewScreen] Error saving event:', error);
       const formatted = formatSaveError(error);

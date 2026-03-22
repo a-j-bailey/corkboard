@@ -3,6 +3,7 @@ import * as bookmarkService from '../services/bookmarkService';
 import * as eventService from '../services/eventService';
 import { getCurrentLocation, UserLocation } from '../services/locationService';
 import { getSaveErrorMessage } from '../utils/formatSaveError';
+import { trackVexoEvent } from '../utils/trackVexoEvent';
 import { useUser } from './UserContext';
 
 export interface SocialMediaHandles {
@@ -141,6 +142,7 @@ export function EventProvider({ children }: { children: ReactNode }) {
       
       if (isBookmarked) {
         await bookmarkService.deleteBookmark(user.id, eventId);
+        trackVexoEvent('event_bookmarked', { eventId, action: 'remove' });
         setBookmarkedEventIds(prev => {
           const newSet = new Set(prev);
           newSet.delete(eventId);
@@ -148,6 +150,7 @@ export function EventProvider({ children }: { children: ReactNode }) {
         });
       } else {
         await bookmarkService.createBookmark(user.id, eventId);
+        trackVexoEvent('event_bookmarked', { eventId, action: 'add' });
         setBookmarkedEventIds(prev => new Set(prev).add(eventId));
       }
 
@@ -180,6 +183,7 @@ export function EventProvider({ children }: { children: ReactNode }) {
         },
         imageUri
       );
+      trackVexoEvent('event_created', { eventId: newEvent.id });
       setEvents(prev => [newEvent, ...prev]);
       return newEvent;
     } catch (err) {

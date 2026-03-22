@@ -65,6 +65,7 @@ export async function processPosterImage(
     const onProgress = options?.onProgress;
     onProgress?.(ExtractionStepMessage.extracting);
 
+    const extractionStartedAt = Date.now();
     let eventData: Partial<Event> = await extractEventFromImage(imageUri, xaiApiKey);
 
     const rawAddress = eventData.address?.trim();
@@ -98,11 +99,14 @@ export async function processPosterImage(
       return;
     }
 
+    const extractionDurationMs = Date.now() - extractionStartedAt;
+
     router.push({
       pathname: '/add/preview',
       params: {
         eventData: encodeURIComponent(JSON.stringify(eventData)),
         posterImageUri: imageUri,
+        extractionDurationMs: String(extractionDurationMs),
       },
     });
     onComplete?.();

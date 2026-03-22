@@ -21,6 +21,7 @@ import { useEvents } from '../../contexts/EventContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useUser } from '../../contexts/UserContext';
 import { createReport } from '../../services/reportService';
+import { trackVexoEvent } from '../../utils/trackVexoEvent';
 
 const REPORT_CATEGORIES = [
   'Wrong Information',
@@ -90,6 +91,8 @@ export default function ReportScreen() {
         selectedCategory!,
         description.trim()
       );
+
+      trackVexoEvent('event_reported', { eventId, category: selectedCategory! });
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       
