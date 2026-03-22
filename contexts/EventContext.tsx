@@ -2,6 +2,7 @@ import React, { createContext, ReactNode, useCallback, useContext, useEffect, us
 import * as bookmarkService from '../services/bookmarkService';
 import * as eventService from '../services/eventService';
 import { getCurrentLocation, UserLocation } from '../services/locationService';
+import { getSaveErrorMessage } from '../utils/formatSaveError';
 import { useUser } from './UserContext';
 
 export interface SocialMediaHandles {
@@ -182,7 +183,7 @@ export function EventProvider({ children }: { children: ReactNode }) {
       return newEvent;
     } catch (err) {
       console.error('[EventContext] Error creating event:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to create event';
+      const errorMessage = getSaveErrorMessage(err);
       setError(errorMessage);
       throw err;
     }

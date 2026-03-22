@@ -4,7 +4,7 @@ import { GlassView } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -24,6 +24,7 @@ import { useLocationSelection } from '../../../contexts/LocationSelectionContext
 import { useTheme } from '../../../contexts/ThemeContext';
 import { parsePriceToNumber } from '../../../services/eventParser';
 import { geocodeLocation } from '../../../services/geocodingService';
+import { formatSaveError } from '../../../utils/formatSaveError';
 
 // Day settings interface
 interface DaySettings {
@@ -163,6 +164,7 @@ export default function PreviewScreen() {
   const textColor = Colors[colorScheme].text;
   const tintColor = Colors[colorScheme].tint;
   const [isSaving, setIsSaving] = useState(false);
+  const saveInFlightRef = useRef(false);
 
   // Get params from route
   const params = useLocalSearchParams<{
@@ -409,6 +411,10 @@ export default function PreviewScreen() {
   }, [validateForm]);
 
   const handleSave = async () => {
+    if (saveInFlightRef.current) {
+      return;
+    }
+
     // Validate form before submission
     if (!validateForm()) {
       Alert.alert('Validation Error', 'Please fix the errors in the form before submitting.');
@@ -420,6 +426,7 @@ export default function PreviewScreen() {
       return;
     }
 
+    saveInFlightRef.current = true;
     setIsSaving(true);
 
     try {
@@ -534,13 +541,24 @@ export default function PreviewScreen() {
 
       console.log('[PreviewScreen] Saving event:', JSON.stringify(eventData, null, 2));
       await addEvent(eventData, posterImageUri);
-
-      router.dismissAll();
     } catch (error) {
       console.error('[PreviewScreen] Error saving event:', error);
-      Alert.alert('Error', 'Failed to save event. Please try again.');
+      const formatted = formatSaveError(error);
+      Alert.alert(formatted.title, formatted.message);
+      return;
     } finally {
+      saveInFlightRef.current = false;
       setIsSaving(false);
+    }
+
+    try {
+      router.dismissAll();
+    } catch (navError) {
+      console.error('[PreviewScreen] Error leaving screen after save:', navError);
+      Alert.alert(
+        'Event saved',
+        "Your event was saved, but we couldn't close this screen. Go back manually to continue."
+      );
     }
   };
 

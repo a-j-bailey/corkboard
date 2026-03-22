@@ -2,6 +2,7 @@ import { File } from 'expo-file-system';
 import { Event, EventDate } from '../contexts/EventContext';
 import { supabase } from '../lib/supabase';
 import { calculateDistance } from '../utils/distanceCalculator';
+import { getSaveErrorMessage } from '../utils/formatSaveError';
 import { UserLocation } from './locationService';
 
 /**
@@ -149,9 +150,7 @@ export async function uploadPosterImage(
       });
 
     if (error) {
-      console.error('[EventService] Storage upload error:', error);
-      console.error('[EventService] Error message:', error.message);
-      console.error('[EventService] Error details:', JSON.stringify(error, null, 2));
+      console.error('[EventService] Storage upload error:', getSaveErrorMessage(error), error);
       throw error;
     }
 
@@ -164,10 +163,7 @@ export async function uploadPosterImage(
     console.log('[EventService] Public URL:', urlData.publicUrl);
     return urlData.publicUrl;
   } catch (error) {
-    console.error('[EventService] Error uploading poster image:', error);
-    if (error instanceof Error) {
-      console.error('[EventService] Error message:', error.message);
-    }
+    console.error('[EventService] Error uploading poster image:', getSaveErrorMessage(error), error);
     throw error;
   }
 }
@@ -180,6 +176,17 @@ export async function createEvent(
   imageUri?: string
 ): Promise<Event> {
   try {
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
+    if (sessionError) {
+      console.warn('[EventService] getSession before insert:', sessionError);
+    }
+    if (!session) {
+      throw new Error('Session expired. Please sign in again.');
+    }
+
     // First, insert the event to get an ID
     const dbEvent = eventToDbEvent(event);
     
@@ -193,6 +200,7 @@ export async function createEvent(
       .single();
 
     if (error) {
+      console.error('[EventService] Event insert failed:', getSaveErrorMessage(error), error);
       throw error;
     }
 
@@ -212,19 +220,27 @@ export async function createEvent(
           .single();
 
         if (updateError) {
-          console.error('[EventService] Error updating event with image URL:', updateError);
+          console.error(
+            '[EventService] Error updating event with image URL (event still saved):',
+            getSaveErrorMessage(updateError),
+            updateError
+          );
         } else if (updateData) {
           return dbEventToEvent(updateData as DatabaseEvent);
         }
       } catch (imageError) {
-        console.error('[EventService] Error uploading image, but event was created:', imageError);
+        console.error(
+          '[EventService] Error uploading image, but event was created:',
+          getSaveErrorMessage(imageError),
+          imageError
+        );
         // Event is still created, just without image
       }
     }
 
     return newEvent;
   } catch (error) {
-    console.error('[EventService] Error creating event:', error);
+    console.error('[EventService] Error creating event:', getSaveErrorMessage(error), error);
     throw error;
   }
 }
