@@ -87,9 +87,8 @@ export default function ProfileScreen() {
     // User is logged in - show profile info
     const displayName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
 
-    const screenBackgroundColor = Colors[colorScheme].backgroundSecondary;
-    const cardBackgroundColor = Colors[colorScheme].background;
-    const separatorColor = Colors[colorScheme].backgroundSecondary + 'CC';
+    const cardBackgroundColor = Colors[colorScheme].backgroundSecondary;
+    const separatorColor = colorScheme === 'dark' ? '#333' : '#E5E7EB';
     const chevronColor = Colors[colorScheme].text;
     const circleIconColor = '#FFFFFF';
 
@@ -149,7 +148,7 @@ export default function ProfileScreen() {
     };
 
     return (
-      <View style={{ flex: 1, backgroundColor: screenBackgroundColor }}>
+      <View style={{ flex: 1, backgroundColor }}>
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{
