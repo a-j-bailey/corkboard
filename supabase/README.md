@@ -62,22 +62,12 @@ USING (
 
 ## Environment Variables
 
-Make sure your `app.json` includes Supabase configuration:
+Copy `.env.example` to `.env` and set:
 
-```json
-{
-  "expo": {
-    "extra": {
-      "supabaseUrl": "YOUR_SUPABASE_URL",
-      "supabaseAnonKey": "YOUR_SUPABASE_ANON_KEY"
-    }
-  }
-}
-```
-
-Or set environment variables:
 - `EXPO_PUBLIC_SUPABASE_URL`
 - `EXPO_PUBLIC_SUPABASE_ANON_KEY`
+
+Never commit live keys or put them in `app.json`. The anon key is safe for the client; never use the `service_role` key in the app.
 
 ## Duplicate event detection (cron)
 

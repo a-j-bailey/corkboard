@@ -61,10 +61,10 @@ function RootStack() {
   );
 }
 
-// Initialize Vexo analytics (production only). Set EXPO_PUBLIC_VEXO_API_KEY or vexoApiKey in app.json extra.
+// Initialize Vexo analytics (production only). Set EXPO_PUBLIC_VEXO_API_KEY (see .env.example).
 if (!__DEV__) {
   const vexoApiKey =
-    Constants.expoConfig?.extra?.vexoApiKey ?? process.env.EXPO_PUBLIC_VEXO_API_KEY;
+    process.env.EXPO_PUBLIC_VEXO_API_KEY ?? Constants.expoConfig?.extra?.vexoApiKey;
   if (vexoApiKey) {
     vexo(vexoApiKey);
   }

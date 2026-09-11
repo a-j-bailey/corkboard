@@ -90,11 +90,7 @@
       "router": {},
       "eas": {
         "projectId": "59af26c0-3939-4323-90c3-ac2ca72fb990"
-      },
-      "supabaseUrl": "https://bqsogesiidtmzdzwmlbl.supabase.co",
-      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxc29nZXNpaWR0bXpkendtbGJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYwMTc4ODksImV4cCI6MjA4MTU5Mzg4OX0.ErjFhaOKGSWFrKPV7nkOjJTdJwUbx-ZTaFzxXn7a9BE",
-      "xaiApiKey": "xai-bdeOIVJ0LOWQ8N5c3DKPCufnOry9jRbPhtPjQCAO19GSqld22V9TewCxpZH8Js7j1hklFD98Z8sIt2cD",
-      "xaiBaseUrl": "https://api.x.ai/v1"
+      }
     },
     "owner": "justlaunch-club"
   }

@@ -47,8 +47,8 @@ export async function processPosterImage(
 
   try {
     const xaiApiKey =
-      Constants.expoConfig?.extra?.xaiApiKey ||
       process.env.EXPO_PUBLIC_XAI_API_KEY ||
+      Constants.expoConfig?.extra?.xaiApiKey ||
       // Fallback to deprecated OpenAI env var for backward compatibility
       process.env.EXPO_PUBLIC_OPENAI_API_KEY;
 
@@ -56,7 +56,7 @@ export async function processPosterImage(
       console.error('[processPosterImage] No xAI API key found');
       Alert.alert(
         'API Key Required',
-        'xAI API key is required. Please set EXPO_PUBLIC_XAI_API_KEY in your environment or add xaiApiKey to app.json extra config.'
+        'xAI API key is required. Set EXPO_PUBLIC_XAI_API_KEY in your environment (see .env.example).'
       );
       onComplete?.();
       return;
