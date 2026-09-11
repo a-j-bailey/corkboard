@@ -66,11 +66,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
       }
 
       // Check if Supabase is configured
-      const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl || process.env.EXPO_PUBLIC_SUPABASE_URL || '';
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || Constants.expoConfig?.extra?.supabaseUrl || '';
       if (!supabaseUrl) {
         Alert.alert(
           'Configuration Required',
-          'Supabase credentials are not configured. Please add your Supabase URL and Anon Key to app.json or environment variables. See SUPABASE_SETUP.md for instructions.'
+          'Supabase credentials are not configured. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY (see .env.example).'
         );
         return;
       }

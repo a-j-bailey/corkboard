@@ -20,10 +20,6 @@
     }
   },
   "submit": {
-    "production": {
-      "ios": {
-        "appleId": "engineering@justlaunch.club",
-      }
-    }
+    "production": {}
   }
 }

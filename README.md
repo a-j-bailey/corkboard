@@ -106,18 +106,32 @@ eas build --platform ios --profile development
 
 After installing the development build on your device, you can run `npx expo start --dev-client` to connect to it.
 
-## AI configuration (xAI)
+## Configuration
+
+Copy `.env.example` to `.env` and fill in your own values. Do not commit `.env` or put live keys in `app.json`.
+
+### Supabase
+
+Required for auth, events, and storage. See `supabase/README.md` for project setup.
+
+- `EXPO_PUBLIC_SUPABASE_URL` – your Supabase project URL.
+- `EXPO_PUBLIC_SUPABASE_ANON_KEY` – the public anon key (never the `service_role` key).
+
+### AI configuration (xAI)
 
 This app uses **xAI** via its **OpenAI-compatible API** to extract structured event details directly from poster images. The vision extraction call uses model **`grok-4-1-fast-reasoning`**.
 
-- **Required env vars** (in `.env`):
-  - `EXPO_PUBLIC_XAI_API_KEY` – your xAI API key.
-  - `EXPO_PUBLIC_XAI_BASE_URL` – optional, defaults to `https://api.x.ai/v1`.
-- **Expo config** (`app.json` → `expo.extra`):
-  - `xaiApiKey` – optional override for the runtime API key.
-  - `xaiBaseUrl` – optional override for the base URL (defaults to `https://api.x.ai/v1`).
+- `EXPO_PUBLIC_XAI_API_KEY` – your xAI API key (required for poster scanning).
+- `EXPO_PUBLIC_XAI_BASE_URL` – optional, defaults to `https://api.x.ai/v1`.
 
-If `EXPO_PUBLIC_XAI_API_KEY` and `xaiApiKey` are not set, the app will fall back to `EXPO_PUBLIC_OPENAI_API_KEY` for backward compatibility, but this is **deprecated** and may be removed in the future.
+If `EXPO_PUBLIC_XAI_API_KEY` is not set, the app will fall back to `EXPO_PUBLIC_OPENAI_API_KEY` for backward compatibility, but this is **deprecated** and may be removed in the future.
+
+### Optional
+
+- `EXPO_PUBLIC_VEXO_API_KEY` – Vexo analytics (production builds only).
+- `EXPO_PUBLIC_OCR_FIRST_EXTRACTION=1` – run local OCR before the vision model.
+
+For EAS builds, set the same `EXPO_PUBLIC_*` variables in EAS secrets / environment rather than committing them.
 
 ## Learn more
 
